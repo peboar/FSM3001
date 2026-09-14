@@ -3,7 +3,7 @@ import os
 import random
 import bpy
 
-sys.path.append(r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project")
+sys.path.append(r"/")
 
 from containers import CylindricalContainer
 from aggregates import Sphere
@@ -144,13 +144,19 @@ class Generation:
         for aggregate in self.aggregates:
             aggregate.voxelize(voxel_size)
 
+    def slice_aggregate(self):
+        coordinates = np.empty(3 * len(sphere.data.vertices), dtype=np.float32)
+        sphere.data.vertices.foreach_get("co", coordinates)
+        voxel = coordinates.reshape(-1, 3)
+        pass
+
 if __name__ == "__main__":
     container = CylindricalContainer(0.1, 0.5)
 
     generation = Generation(
         container,
         "sphere",
-        100,
+        20,
         11.6e-3/2,
         16e-3/2,
         [2500],
