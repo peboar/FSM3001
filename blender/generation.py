@@ -138,7 +138,7 @@ class Generation:
             bpy.context.view_layer.update()  # Force Blender to update object positions
 
             if frame % 100 == 0 and frame > 0:
-                print(f"Simulation frame {frame}/{total_frames} calculated...")
+                print(f"Simulation completion {100*frame/total_frames: .0f}%")
 
     def save_packing(self, filename="packing.npz"):
         vertices = []
@@ -151,8 +151,11 @@ class Generation:
 
             obj = aggregate.obj
 
+            transform = obj.matrix_world
+
             for vertex in obj.data.vertices:
-                vertices.append(obj.matrix_world @ vertex.co)
+                transformed_vertices = transform @ vertex.co
+                vertices.append(transformed_vertices)
 
             # Offsetting the indices of the faces to ensure they map to the correct vertices
             for polygon in obj.data.polygons:
@@ -179,7 +182,7 @@ if __name__ == "__main__":
     generation = Generation(
         container,
         "sphere",
-        100,
+        10,
         11.6e-3/2,
         16e-3/2,
         [2500],
