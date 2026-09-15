@@ -108,7 +108,10 @@ class Generation:
         """
         radii, locations = self._generate_aggregate_locations()
 
-        for radius, location in zip(radii, locations):
+        for i in range(self.number_of_aggregates):
+            print(f"Generating aggregate {i+1}/{self.number_of_aggregates}")
+            radius = radii[i]
+            location = locations[i]
             # Select the aggregate density according to the specified proportions.
             density = random.choices(
                 self.densities,
@@ -182,7 +185,7 @@ if __name__ == "__main__":
     generation = Generation(
         container,
         "sphere",
-        10,
+        300,
         11.6e-3/2,
         16e-3/2,
         [2500],
