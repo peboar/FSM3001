@@ -2,8 +2,9 @@ import sys
 import os
 import random
 import bpy
+import numpy as np
 
-sys.path.append(r"/")
+sys.path.append(r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/blender")
 
 from containers import CylindricalContainer
 from aggregates import Sphere
@@ -137,18 +138,40 @@ class Generation:
             bpy.context.view_layer.update()  # Force Blender to update object positions
 
             if frame % 100 == 0 and frame > 0:
-                print(f"    Simulation frame {frame}/{total_frames} calculated...")
+                print(f"Simulation frame {frame}/{total_frames} calculated...")
 
+    def save_packing(self, filename="packing.npz"):
+        vertices = []
+        faces = []
+        aggregate_ids = []
 
-    def voxelize_aggregates(self, voxel_size):
-        for aggregate in self.aggregates:
-            aggregate.voxelize(voxel_size)
+        vertex_offset = 0
 
-    def slice_aggregate(self):
-        coordinates = np.empty(3 * len(sphere.data.vertices), dtype=np.float32)
-        sphere.data.vertices.foreach_get("co", coordinates)
-        voxel = coordinates.reshape(-1, 3)
-        pass
+        for aggregate_id, aggregate in enumerate(self.aggregates):
+
+            obj = aggregate.obj
+
+            for vertex in obj.data.vertices:
+                vertices.append(obj.matrix_world @ vertex.co)
+
+            # Offsetting the indices of the faces to ensure they map to the correct vertices
+            for polygon in obj.data.polygons:
+                faces.append([
+                    vertex_index + vertex_offset
+                    for vertex_index in polygon.vertices
+                ])
+
+            # Store aggregate indices
+            aggregate_ids.append(aggregate_id)
+
+            vertex_offset += len(obj.data.vertices)
+
+        np.savez(
+            filename,
+            vertices=np.array(vertices),
+            faces=np.array(faces),
+            aggregate_ids=np.array(aggregate_ids)
+        )
 
 if __name__ == "__main__":
     container = CylindricalContainer(0.1, 0.5)
@@ -156,11 +179,11 @@ if __name__ == "__main__":
     generation = Generation(
         container,
         "sphere",
-        20,
+        100,
         11.6e-3/2,
         16e-3/2,
         [2500],
         [1]
     )
     generation.run_simulation()
-    generation.voxelize_aggregates()
+    generation.save_packing()

@@ -63,20 +63,6 @@ class Aggregate(ABC):
 
         self.obj.select_set(False)
 
-    def voxelize(self, voxel_size):
-        """Voxelize the aggregate.
-            Parameters
-            ----------
-            voxel_size : Size of the voxel
-        """
-        if self.obj:
-
-            remesh_mod = self.obj.modifiers.new(name="Remesh", type='REMESH')
-
-            remesh_mod.mode = 'VOXEL'
-            remesh_mod.voxel_size = voxel_size
-            remesh_mod.use_smooth_shade = False
-
     def get_shape(self):
         return self.shape
 
