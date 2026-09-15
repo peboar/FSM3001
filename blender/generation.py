@@ -139,8 +139,8 @@ class Generation:
         for frame in range(0, total_frames + 1):
             bpy.context.scene.frame_set(frame)
             bpy.context.view_layer.update()  # Force Blender to update object positions
-
-            if frame % 100 == 0 and frame > 0:
+            output_frequency = total_frames // 100
+            if frame > 0 and frame % output_frequency == 0 and frame > 0:
                 print(f"Simulation completion {100*frame/total_frames: .0f}%")
 
     def save_packing(self, filename="packing.npz"):
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     generation = Generation(
         container,
         "sphere",
-        300,
+        500,
         11.6e-3/2,
         16e-3/2,
         [2500],

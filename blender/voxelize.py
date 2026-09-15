@@ -1,9 +1,10 @@
 import numpy as np
 import trimesh
 import matplotlib.pyplot as plt
+import time
 
 radius = 8e-3
-pitch = 1 * radius
+pitch = 0.5 * radius
 
 data = np.load("blender/packing.npz")
 
@@ -16,7 +17,7 @@ mesh = trimesh.Trimesh(
     process=True
 )
 
-voxels = mesh.voxelized(pitch=pitch).fill()
+voxels = mesh.voxelized(pitch=pitch)
 voxel_matrix = voxels.matrix
 
 mid_index = voxel_matrix.shape[2] // 2
