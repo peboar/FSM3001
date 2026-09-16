@@ -1,12 +1,21 @@
 import numpy as np
 import trimesh
 import matplotlib.pyplot as plt
-import time
 
-radius = 8e-3
-pitch = 0.5 * radius
+data_path = np.load("../data/spheres/packing_test/packing_test.npz")
 
-data = np.load("packing.npz")
+
+class CtDataGenerator:
+    def __init__(self, data_path, image_size, min_dimension=1, pitch=1):
+        self.data = np.load(data_path)
+        self.image_size = image_size
+        self.min_dimension = 1
+        self.pitch = 1
+
+
+
+
+
 
 vertices = data["vertices"]
 faces = data["faces"]
@@ -37,6 +46,7 @@ section = mesh.section(
 
 section_2D, _ = section.to_planar()
 
+# Generate raw cross sections
 fig, ax = plt.subplots(facecolor="black")
 ax.set_facecolor("black")
 
@@ -45,6 +55,21 @@ for polygon in section_2D.polygons_full:
 
     ax.fill(x, y, color="gray")
     ax.plot(x, y, color="gray")
+
+ax.set_aspect("equal", adjustable="box")
+ax.axis("off")
+fig.tight_layout(pad=0)
+plt.show()
+
+# Generate cross-section masks
+fig, ax = plt.subplots(facecolor="black")
+ax.set_facecolor("black")
+for polygon in section_2D.polygons_full:
+    x, y = polygon.exterior.xy
+
+    ax.fill(x, y, color="gray")
+    ax.plot(x, y, color="white")
+
 
 ax.set_aspect("equal", adjustable="box")
 ax.axis("off")

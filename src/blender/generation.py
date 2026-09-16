@@ -4,7 +4,7 @@ import random
 import bpy
 import numpy as np
 
-sys.path.append(r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/blender")
+sys.path.append(r"/src/blender")
 
 from containers import CylindricalContainer
 from aggregates import Sphere
