@@ -68,16 +68,14 @@ class Generation:
             mean_radius = (self.min_dimension + self.max_dimension) / 2
             std_dev_radius = mean_radius / 3
 
-            # Select the aggregate density according to the specified proportions.
-            density = random.choices(
-                self.densities,
-                weights=self.proportions,
-                k=1
-            )[0]
-
-
             prev_bounding_radius = 0
             for i in range(self.number_of_aggregates):
+                # Select the aggregate density according to the specified proportions.
+                density = random.choices(
+                    self.densities,
+                    weights=self.proportions,
+                    k=1
+                )[0]
                 # Loop until a valid aggregate size is found
                 while True:
                     # random.gauss pulls from a true normal distribution
