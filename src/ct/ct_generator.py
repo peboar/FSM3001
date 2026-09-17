@@ -1,8 +1,11 @@
-import numpy as np
-import trimesh
-import matplotlib.pyplot as plt
-from PIL import Image
 import io
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
+import trimesh
+
 
 
 class CtDataGenerator:
@@ -69,7 +72,7 @@ class CtDataGenerator:
 
         ax = fig.add_axes([0, 0, 1, 1])
         ax.set_facecolor("black")
-
+        # NB!!!!!!!!! FIX BOUNDS USE CONFIGFILE to set the bounds based on the container size
         (x_min, y_min), (x_max, y_max) = section_2d.bounds
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
@@ -90,8 +93,6 @@ class CtDataGenerator:
         image = image[:, :, :3].mean(axis=2).astype(np.uint8)
 
         Image.fromarray(image, mode="L").save(filename)
-
-        plt.show()
         plt.close(fig)
 
     def animate_slicing(

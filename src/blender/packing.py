@@ -1,7 +1,7 @@
+import random
 import sys
 from datetime import datetime
 from pathlib import Path
-import random
 
 import bpy
 import numpy as np

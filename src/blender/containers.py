@@ -1,6 +1,7 @@
+from abc import ABC, abstractmethod
+
 import bmesh
 import bpy
-from abc import ABC, abstractmethod
 
 
 class Container(ABC):

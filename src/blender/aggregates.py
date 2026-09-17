@@ -1,5 +1,5 @@
-import random
 from abc import ABC, abstractmethod
+import random
 
 import bmesh
 import bpy
