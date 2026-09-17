@@ -126,6 +126,8 @@ class Generation:
         bpy.context.scene.unit_settings.system = "METRIC"
         bpy.context.scene.unit_settings.length_unit = "MILLIMETERS"
         bpy.context.scene.gravity = (0, 0, -9810)
+
+        # Blender dimension for correct units. Dimensions and gravity is scaled down
         bpy.context.scene.unit_settings.scale_length = 0.001
 
         rb_world.time_scale = 0.1  # Slows simulation and fixes failed contacts
