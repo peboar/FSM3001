@@ -1,5 +1,5 @@
 import sys
-import os
+from pathlib import Path
 import random
 import bpy
 import numpy as np
@@ -144,7 +144,11 @@ class Generation:
             if frame > 0 and frame % output_frequency == 0:
                 print(f"Simulation completion {100*frame/total_frames: .0f}%")
 
-    def save_packing(self):
+    def save_packing(self, save_blend=False):
+        project_dir = Path(__file__).resolve().parent.parent
+        output_dir = project_dir / "data" / f"{self.aggregate_type}s"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
         vertices = []
         faces = []
         aggregate_ids = []
@@ -189,14 +193,22 @@ class Generation:
             vertex_offset += len(obj.data.vertices)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"packing_{valid_aggregates}_{timestamp}.npz"
+        filename = f"packing_{valid_aggregates}_{timestamp}"
+
+        packing_dir = output_dir / filename
+        packing_dir.mkdir(parents=True, exist_ok=True)
 
         np.savez(
-            filename,
+            packing_dir / f"{filename}.npz",
             vertices=np.array(vertices),
             faces=np.array(faces),
             aggregate_ids=np.array(aggregate_ids)
         )
+
+        if save_blend:
+            bpy.ops.wm.save_as_mainfile(
+                filepath=str(packing_dir / f"{filename}.blend")
+            )
 
 if __name__ == "__main__":
     container = CylindricalContainer(50, 205)
@@ -211,4 +223,4 @@ if __name__ == "__main__":
         [1]
     )
     generation.run_simulation()
-    generation.save_packing()
+    generation.save_packing(True)

@@ -61,9 +61,9 @@ class CtDataGenerator:
         fig.tight_layout(pad=0)
         plt.show()
 
-path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/spheres/packing_test/packing_test.npz"
+path = r"/src/blender/packing_500_20260917_092148.npz"
 ct_generator = CtDataGenerator(path, 512)
 ct_generator.plot_packing()
-dz = 1e-3
+dz = 1
 for i in range(1, 101):
     ct_generator._generate_mask(i*dz)
