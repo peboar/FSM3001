@@ -3,6 +3,9 @@ import os
 import random
 import bpy
 import numpy as np
+from mathutils import Vector
+from datetime import datetime
+
 
 sys.path.append(r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/blender")
 
@@ -141,22 +144,37 @@ class Generation:
             if frame > 0 and frame % output_frequency == 0:
                 print(f"Simulation completion {100*frame/total_frames: .0f}%")
 
-    def save_packing(self, filename="packing.npz"):
+    def save_packing(self):
         vertices = []
         faces = []
         aggregate_ids = []
 
         vertex_offset = 0
+        valid_aggregates = 0
 
         for aggregate_id, aggregate in enumerate(self.aggregates):
 
             obj = aggregate.obj
 
             transform = obj.matrix_world
+            obj_vertices = obj.data.vertices
+            centroid = Vector((0, 0, 0))
 
-            for vertex in obj.data.vertices:
-                transformed_vertices = transform @ vertex.co
-                vertices.append(transformed_vertices)
+            for vertex in obj_vertices:
+                transformed_vertex = transform @ vertex.co
+                vertices.append(transformed_vertex)
+                centroid += transformed_vertex
+
+            centroid /= len(obj_vertices)
+            x, y, z = centroid
+
+            # Check if an aggregate is outside the container
+            if self.container.get_shape() == "CYLINDER":
+                if z <= 0 or x ** 2 + y ** 2 >= self.container.radius ** 2:
+                    continue
+
+            # Increment if the aggregate is inside the container
+            valid_aggregates += 1
 
             # Offsetting the indices of the faces to ensure they map to the correct vertices
             for polygon in obj.data.polygons:
@@ -169,6 +187,9 @@ class Generation:
             aggregate_ids.append(aggregate_id)
 
             vertex_offset += len(obj.data.vertices)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"packing_{valid_aggregates}_{timestamp}.npz"
 
         np.savez(
             filename,
@@ -183,7 +204,7 @@ if __name__ == "__main__":
     generation = Generation(
         container,
         "polyhedron",
-        500,
+        10,
         11.6/2,
         16/2,
         [2500],
