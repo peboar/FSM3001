@@ -11,6 +11,11 @@ class Container(ABC):
         self.friction = friction
         self.damping = damping
         self.collision_shape = collision_shape
+
+        # Remove initial cube
+        for obj in list(bpy.data.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+
         self.obj = self._create_blender_primitive()
         if self.obj:
             self._apply_physics()

@@ -6,7 +6,6 @@ import numpy as np
 from mathutils import Vector
 from datetime import datetime
 
-
 sys.path.append(r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/blender")
 
 from containers import CylindricalContainer
@@ -126,13 +125,12 @@ class Generation:
         # Convex hull contact between the mesh container fails for small dimensions. Must use millimeters
         bpy.context.scene.unit_settings.system = "METRIC"
         bpy.context.scene.unit_settings.length_unit = "MILLIMETERS"
-        bpy.context.scene.unit_settings.scale_length = 0.001
         bpy.context.scene.gravity = (0, 0, -9810)
+        bpy.context.scene.unit_settings.scale_length = 0.001
 
         rb_world.time_scale = 0.1  # Slows simulation and fixes failed contacts
         rb_world.substeps_per_frame = 10  # Default; increase if contacts fail
         rb_world.solver_iterations = 10  # Default; increase if contacts fail
-
 
     def run_simulation(self, total_frames=1000):
         rb_world = bpy.context.scene.rigidbody_world
@@ -216,11 +214,11 @@ if __name__ == "__main__":
     generation = Generation(
         container,
         "polyhedron",
-        10,
+        500,
         11.6/2,
         16/2,
         [2500],
         [1]
     )
     generation.run_simulation()
-    generation.save_packing(True)
+    generation.save_packing()
