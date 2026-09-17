@@ -87,6 +87,7 @@ class Generation:
                 if self.aggregate_type == "sphere":
                     aggregate = Sphere(dimension, 3, density)
                 elif self.aggregate_type == "polyhedron":
+                    # Random point cloud for convex hull 15 to 35 looks decent
                     number_of_points = random.randint(15, 35)
                     aggregate = PolyHedron(dimension, dimension, dimension, number_of_points, 2650)
 
