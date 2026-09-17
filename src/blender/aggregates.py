@@ -2,15 +2,15 @@ import bmesh
 import bpy
 from abc import ABC, abstractmethod
 from mathutils import Vector
+import random
 
 
 class Aggregate(ABC):
     """Parent class for handling varying rigid body physics particles."""
 
-    def __init__(self, shape, density, location, friction, damping, collision_shape="MESH"):
+    def __init__(self, shape, density, friction, damping, collision_shape="MESH"):
         self.shape = shape
         self.density = density
-        self.location = Vector(location)
         self.friction = friction
         self.damping = damping
         self.collision_shape = collision_shape
@@ -26,6 +26,9 @@ class Aggregate(ABC):
         """Must be overridden by child classes to generate and return a Blender object."""
         pass
 
+    def location(self, location):
+        self.obj.location = Vector(location)
+
     def _calculate_mass_from_volume(self):
         """Calculates the true geometry volume using BMesh and returns Mass."""
         bm = bmesh.new()
@@ -37,6 +40,11 @@ class Aggregate(ABC):
         bm.free()
 
         return abs(volume) * self.density
+
+    @abstractmethod
+    def get_bounding_radius(self):
+        """Must be overridden by child classes to return the maximum bounding radius."""
+        pass
 
     def _apply_physics(self):
         """Uniformly applies physics using dynamically calculated mass."""
@@ -69,15 +77,13 @@ class Aggregate(ABC):
 
 class Sphere(Aggregate):
     """Child class handling procedural spherical rigid body particles."""
-
-    def __init__(self, radius, density, location, subdivisions=3, friction=0.7, damping=0.1):
+    def __init__(self, radius, subdivisions=3, density=2650, friction=0.7, damping=0.1):
         self.radius = radius
         self.subdivisions = subdivisions
 
         super().__init__(
             shape="SPHERE",
             density=density,
-            location=location,
             friction=friction,
             damping=damping,
             collision_shape="SPHERE",
@@ -99,14 +105,59 @@ class Sphere(Aggregate):
         bm.to_mesh(mesh_data)
         bm.free()
 
-        sphere.location = self.location
-
         bpy.context.scene.collection.objects.link(sphere)
 
         return sphere
 
+    def get_bounding_radius(self):
+        return self.radius
 
+class PolyHedron(Aggregate):
+    def __init__(self, length, depth, height, number_of_points=15, density=2650, friction=0.45, damping=0.1):
+        self.length = length
+        self.depth = depth
+        self.height = height
+        self.number_of_points = number_of_points
+
+        super().__init__(
+            shape="POLYHEDRON",
+            density=density,
+            friction=friction,
+            damping=damping,
+            collision_shape="CONVEX_HULL",
+        )
+
+    def _create_blender_primitive(self):
+        """Generates a procedural Ico Sphere mesh inside the scene."""
+        mesh_data = bpy.data.meshes.new("ConvexHullMesh")
+        poly_hedra = bpy.data.objects.new("PolyHedra", mesh_data)
+
+        bm = bmesh.new()
+
+        for _ in range(self.number_of_points):
+            x = random.uniform(-self.length, self.length)
+            y = random.uniform(-self.depth, self.depth)
+            z = random.uniform(-self.height, self.height)
+
+            bm.verts.new([x, y, z])
+
+        bmesh.ops.convex_hull(bm, input=bm.verts)
+
+        bm.to_mesh(mesh_data)
+        bm.free()
+
+        bpy.context.scene.collection.objects.link(poly_hedra)
+
+        return poly_hedra
+
+    def get_bounding_radius(self):
+        return max(vertex.co.length for vertex in self.obj.data.vertices)
 
 if __name__ == "__main__":
-    aggregate = Sphere(8e-3, 2500,(0,0,0), 3, 0.1)
-    aggregate.voxelize(0.01)
+    sphere = Sphere(1,3,2650)
+    sphere.location((0,0,2))
+    sphere.get_bounding_radius()
+
+    poly_hedron = PolyHedron(1,1,1,20, 2650)
+    poly_hedron.location((0,0,5))
+    poly_hedron.get_bounding_radius()
