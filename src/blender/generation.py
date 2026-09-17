@@ -183,7 +183,7 @@ if __name__ == "__main__":
     generation = Generation(
         container,
         "polyhedron",
-        10,
+        500,
         11.6/2,
         16/2,
         [2500],
