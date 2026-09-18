@@ -7,61 +7,71 @@ from PIL import Image
 import trimesh
 
 
-
 class CtDataGenerator:
     def __init__(self, data_path, image_size, dpi=100, min_dimension=1, pitch=1):
-        self.data = np.load(data_path)
+        self.data = np.load(data_path, allow_pickle=True)
+
         self.image_size = image_size
         self.dpi = dpi
-        self.min_dimension = 1
-        self.pitch = 1
+        self.min_dimension = min_dimension
+        self.pitch = pitch
+        self.line_width = 72 / self.dpi
+        self.script_path = Path(__file__).resolve()
 
-        self.vertices = self.data["vertices"]
-        self.faces = self.data["faces"]
-        self.aggregate_ids = self.data["aggregate_ids"]
-        self.mesh = trimesh.Trimesh(
-            vertices=self.vertices,
-            faces=self.faces,
-            process=True
-        )
+        self.aggregates = self.data["aggregates"].item()
+
+        self.aggregate_colors = {
+            aggregate_id: np.random.randint(150, 210)
+            for aggregate_id in self.aggregates
+        }
 
     @property
     def z_min(self):
-        return self.vertices[:, 2].min()
+        return min(
+            aggregate["vertices"][:, 2].min()
+            for aggregate in self.aggregates.values()
+        )
 
     @property
     def z_max(self):
-        return self.vertices[:, 2].max()
-
-    def plot_packing(self):
-        fig, ax = plt.subplots(
-            dpi=self.dpi,
-            facecolor="black",
-            subplot_kw={"projection": "3d"}
+        return max(
+            aggregate["vertices"][:, 2].max()
+            for aggregate in self.aggregates.values()
         )
 
-        ax.plot_trisurf(
-            self.vertices[:, 0],
-            self.vertices[:, 1],
-            self.vertices[:, 2],
-            triangles=self.faces,
-            color="gray"
-        )
-        ax.axis("equal")
-        plt.show()
+    def _get_sections(self, z):
+        sections = {}
 
-    def _generate_mask(self, z, filename="test.png"):
-        section = self.mesh.section(
-            plane_normal=[0, 0, 1],
-            plane_origin=[0, 0, z]
+        global_matrix = trimesh.geometry.plane_transform(
+            origin=[0, 0, z],
+            normal=[0, 0, 1]
         )
 
-        if section is None:
-            print(f"No valid section is found for z={z}")
-            return
+        for aggregate_id, aggregate in self.aggregates.items():
+            mesh = trimesh.Trimesh(
+                vertices=aggregate["vertices"],
+                faces=aggregate["faces"],
+                process=True
+            )
 
-        section_2d, _ = section.to_planar()
+            section = mesh.section(
+                plane_normal=[0, 0, 1],
+                plane_origin=[0, 0, z]
+            )
 
+            if section is None:
+                continue
+
+            section_2d, _ = section.to_2D(
+                to_2D=global_matrix,
+                check=False
+            )
+
+            sections[aggregate_id] = section_2d
+
+        return sections
+
+    def _create_canvas(self, bounds):
         figure_size = self.image_size / self.dpi
 
         fig = plt.figure(
@@ -72,210 +82,116 @@ class CtDataGenerator:
 
         ax = fig.add_axes([0, 0, 1, 1])
         ax.set_facecolor("black")
-        # NB!!!!!!!!! FIX BOUNDS USE CONFIGFILE to set the bounds based on the container size
-        (x_min, y_min), (x_max, y_max) = section_2d.bounds
+
+        (x_min, y_min), (x_max, y_max) = bounds
+
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
         ax.set_aspect("equal")
         ax.axis("off")
 
-        for polygon in section_2d.polygons_full:
-            x, y = polygon.exterior.xy
+        return fig, ax
 
-            ax.fill(x, y, color="gray", antialiased=False)
-            ax.plot(x, y, color="white", antialiased=False, linewidth=0.2)
+    def plot_packing(self):
+        fig, ax = plt.subplots(
+            dpi=self.dpi,
+            facecolor="black",
+            subplot_kw={"projection": "3d"}
+        )
+
+        for aggregate_id, aggregate in self.aggregates.items():
+            vertices = aggregate["vertices"]
+            faces = aggregate["faces"]
+
+            color = self.aggregate_colors[aggregate_id]
+
+            ax.plot_trisurf(
+                vertices[:, 0],
+                vertices[:, 1],
+                vertices[:, 2],
+                triangles=faces,
+                color=(color / 255, color / 255, color / 255)
+            )
+
+        ax.set_aspect("equal")
+        plt.show()
+
+    def _generate_slice(
+        self,
+        z,
+        filename="slice.png",
+        bounds=((-55, -55), (55, 55))
+    ):
+        sections = self._get_sections(z)
+
+        if not sections:
+            return
+
+        fig, ax = self._create_canvas(bounds)
+
+        for aggregate_id, section_2d in sections.items():
+            color = self.aggregate_colors[aggregate_id]
+
+            for polygon in section_2d.polygons_full:
+                x, y = polygon.exterior.xy
+
+                ax.fill(
+                    x,
+                    y,
+                    color=(color / 255, color / 255, color / 255),
+                    antialiased=False
+                )
 
         fig.canvas.draw()
 
         image = np.asarray(fig.canvas.buffer_rgba())
-
-        # Convert RGB to grayscale
         image = image[:, :, :3].mean(axis=2).astype(np.uint8)
 
         Image.fromarray(image, mode="L").save(filename)
+
         plt.close(fig)
 
-    def animate_slicing(
+    def _generate_mask(
         self,
-        n_slices,
-        filename="slicing.gif",
-        duration=700,
-        background="black",
-        top_margin_diameters=2,
-        line_extension=0.05
+        z,
+        filename="mask.png",
+        bounds=((-55, -55), (55, 55))
     ):
+        sections = self._get_sections(z)
 
-        z_min = self.vertices[:, 2].min()
-        z_max = self.vertices[:, 2].max()
+        if not sections:
+            return
 
-        max_aggregate_diameter = 0
+        fig, ax = self._create_canvas(bounds)
 
-        for aggregate_id in np.unique(self.aggregate_ids):
+        for section_2d in sections.values():
+            for polygon in section_2d.polygons_full:
+                x, y = polygon.exterior.xy
 
-            vertex_indices = np.where(
-                self.aggregate_ids == aggregate_id
-            )[0]
+                ax.fill(
+                    x,
+                    y,
+                    color="white",
+                    antialiased=False
+                )
 
-            if len(vertex_indices) == 0:
-                continue
+        fig.canvas.draw()
 
-            aggregate_vertices = self.vertices[
-                vertex_indices
-            ]
+        image = np.asarray(fig.canvas.buffer_rgba())
+        image = image[:, :, :3].mean(axis=2).astype(np.uint8)
 
-            dimensions = (
-                aggregate_vertices.max(axis=0)
-                - aggregate_vertices.min(axis=0)
-            )
+        Image.fromarray(image, mode="L").save(filename)
 
-            diameter = dimensions.max()
+        plt.close(fig)
 
-            max_aggregate_diameter = max(
-                max_aggregate_diameter,
-                diameter
-            )
-
-        top_margin = (
-            top_margin_diameters
-            * max_aggregate_diameter
-        )
-
-        z_top = z_max - top_margin
-
-        z_values = np.linspace(
-            z_min,
-            z_top,
-            n_slices + 2
-        )[1:-1]
-
-        x_min = self.vertices[:, 0].min()
-        x_max = self.vertices[:, 0].max()
-
-        y_min = self.vertices[:, 1].min()
-        y_max = self.vertices[:, 1].max()
-
-        x_margin = line_extension * (x_max - x_min)
-
-        line_x_min = x_min - x_margin
-        line_x_max = x_max + x_margin
-
-        frames = []
-
-        for z in z_values:
-
-            fig = plt.figure(
-                figsize=(12, 6),
-                dpi=self.dpi,
-                facecolor=background
-            )
-
-            ax_3d = fig.add_subplot(
-                121,
-                projection="3d",
-                facecolor=background
-            )
-
-            ax_2d = fig.add_subplot(
-                122,
-                facecolor=background
-            )
-
-            ax_3d.computed_zorder = False
-
-            ax_3d.plot_trisurf(
-                self.vertices[:, 0],
-                self.vertices[:, 1],
-                self.vertices[:, 2],
-                triangles=self.faces,
-                color="gray",
-                edgecolor="white",
-                linewidth=0.2,
-                antialiased=True
-            )
-
-            ax_3d.set_xlim(x_min, x_max)
-            ax_3d.set_ylim(y_min, y_max)
-            ax_3d.set_zlim(z_min, z_max)
-
-            ax_3d.set_box_aspect([
-                x_max - x_min,
-                y_max - y_min,
-                z_max - z_min
-            ])
-
-            ax_3d.view_init(
-                elev=0,
-                azim=-90
-            )
-
-            ax_3d.set_axis_off()
-
-            ax_3d.plot(
-                [line_x_min, line_x_max],
-                [y_max, y_max],
-                [z, z],
-                color="lightgreen",
-                linewidth=5,
-                alpha=0.45,
-                solid_capstyle="butt",
-                zorder=100
-            )
-
-            section = self.mesh.section(
-                plane_normal=[0, 0, 1],
-                plane_origin=[0, 0, z]
-            )
-
-            if section is not None:
-
-                section_2d, _ = section.to_planar()
-
-                for polygon in section_2d.polygons_full:
-
-                    x, y = polygon.exterior.xy
-
-                    ax_2d.fill(
-                        x,
-                        y,
-                        color="gray",
-                        edgecolor="lightgray",
-                        linewidth=0.7,
-                        antialiased=True
-                    )
-
-            ax_2d.set_xlim(x_min, x_max)
-            ax_2d.set_ylim(y_min, y_max)
-            ax_2d.set_aspect("equal", adjustable="box")
-            ax_2d.set_axis_off()
-
-            fig.tight_layout(pad=0)
-
-            buffer = io.BytesIO()
-
-            fig.savefig(
-                buffer,
-                format="png",
-                facecolor=background,
-                bbox_inches=None,
-                pad_inches=0
-            )
-
-            buffer.seek(0)
-
-            frames.append(
-                Image.open(buffer).convert("RGB")
-            )
-
-            plt.close(fig)
-
-        frames[0].save(
-            filename,
-            save_all=True,
-            append_images=frames[1:],
-            duration=duration,
-            loop=0
-        )
-
-path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/PRESENTATION/packing_500_20260917_101113.npz"
+path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_500_20260918_112953/packing_500_20260918_112953.npz"
 ct_generator = CtDataGenerator(path, 512)
-ct_generator._generate_mask(100)
+
+ct_generator.plot_packing()
+ct_generator._generate_slice(11, "slice1.png")
+ct_generator._generate_slice(12, "slice2.png")
+ct_generator._generate_slice(13, "slice3.png")
+
+ct_generator._generate_mask(11, "mask1.png")
+ct_generator._generate_mask(12, "mask2.png")
+ct_generator._generate_mask(13, "mask3.png")

@@ -173,11 +173,7 @@ class Packing:
         output_dir = project_dir / "data" / f"{self.aggregate_type}s"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        vertices = []
-        faces = []
-        aggregate_ids = []
-
-        vertex_offset = 0
+        aggregates = {}
         valid_aggregates = 0
 
         for aggregate_id, aggregate in enumerate(self.aggregates):
@@ -187,12 +183,15 @@ class Packing:
             obj_vertices = obj.data.vertices
             centroid = Vector((0, 0, 0))
 
+            vertices = []
+
             for vertex in obj_vertices:
                 transformed_vertex = transform @ vertex.co
                 vertices.append(transformed_vertex)
                 centroid += transformed_vertex
 
             centroid /= len(obj_vertices)
+
             x, y, z = centroid
 
             # Check if an aggregate is outside the container.
@@ -200,33 +199,29 @@ class Packing:
                 if z <= 0 or x**2 + y**2 >= self.container.radius**2:
                     continue
 
-            # Increment if the aggregate is inside the container.
+            vertices = np.array(vertices)
+
+            faces = np.array([
+                polygon.vertices[:]
+                for polygon in obj.data.polygons
+            ])
+
+            aggregates[aggregate_id] = {
+                "vertices": vertices,
+                "faces": faces
+            }
+
             valid_aggregates += 1
-
-            # Offsetting the indices of the faces to ensure they map to the correct vertices.
-            for polygon in obj.data.polygons:
-                faces.append(
-                    [
-                        vertex_index + vertex_offset
-                        for vertex_index in polygon.vertices
-                    ]
-                )
-
-            # Store aggregate indices.
-            aggregate_ids.append(aggregate_id)
-
-            vertex_offset += len(obj.data.vertices)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"packing_{valid_aggregates}_{timestamp}"
 
         packing_dir = output_dir / filename
         packing_dir.mkdir(parents=True, exist_ok=True)
+
         np.savez(
             packing_dir / f"{filename}.npz",
-            vertices=np.array(vertices),
-            faces=np.array(faces),
-            aggregate_ids=np.array(aggregate_ids),
+            aggregates=np.array(aggregates, dtype=object)
         )
 
         if save_blend:
@@ -234,14 +229,13 @@ class Packing:
                 filepath=str(packing_dir / f"{filename}.blend")
             )
 
-
 if __name__ == "__main__":
     container = CylindricalContainer(50, 205)
 
     packing = Packing(
         container,
         "polyhedron",
-        10,
+        500,
         11.6,
         16,
         [2650],
