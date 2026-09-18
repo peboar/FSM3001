@@ -1,21 +1,30 @@
-import io
 from pathlib import Path
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
+import shapely
 import trimesh
+from matplotlib.animation import FuncAnimation, PillowWriter
 
 
 class CtDataGenerator:
-    def __init__(self, data_path, image_size, dpi=100, min_dimension=1, pitch=1):
+    def __init__(
+        self,
+        data_path,
+        image_size,
+        dpi=100,
+        min_dimension=1,
+        pitch=1,
+    ):
         self.data = np.load(data_path, allow_pickle=True)
 
-        self.image_size = image_size
+        self.image_width = image_size
+        self.image_height = image_size
+
         self.dpi = dpi
         self.min_dimension = min_dimension
         self.pitch = pitch
-        self.line_width = 72 / self.dpi
         self.script_path = Path(__file__).resolve()
 
         self.aggregates = self.data["aggregates"].item()
@@ -42,61 +51,65 @@ class CtDataGenerator:
     def _get_sections(self, z):
         sections = {}
 
-        global_matrix = trimesh.geometry.plane_transform(
-            origin=[0, 0, z],
-            normal=[0, 0, 1]
-        )
-
         for aggregate_id, aggregate in self.aggregates.items():
             mesh = trimesh.Trimesh(
                 vertices=aggregate["vertices"],
                 faces=aggregate["faces"],
-                process=True
+                process=True,
             )
 
             section = mesh.section(
                 plane_normal=[0, 0, 1],
-                plane_origin=[0, 0, z]
+                plane_origin=[0, 0, z],
             )
 
             if section is None:
                 continue
 
+            global_matrix = trimesh.geometry.plane_transform(
+                origin=[0, 0, z],
+                normal=[0, 0, 1],
+            )
+
             section_2d, _ = section.to_2D(
                 to_2D=global_matrix,
-                check=False
+                check=False,
             )
 
             sections[aggregate_id] = section_2d
 
         return sections
 
-    def _create_canvas(self, bounds):
-        figure_size = self.image_size / self.dpi
+    def _coordinates_to_pixels(self, bounds):
+        (min_x, min_y), (max_x, max_y) = bounds
 
-        fig = plt.figure(
-            figsize=(figure_size, figure_size),
-            dpi=self.dpi,
-            facecolor="black"
+        range_x = max_x - min_x
+        range_y = max_y - min_y
+
+        y_indices, x_indices = np.indices(
+            (self.image_height, self.image_width)
         )
 
-        ax = fig.add_axes([0, 0, 1, 1])
-        ax.set_facecolor("black")
+        pixel_x = (
+            (x_indices / (self.image_width - 1))
+            * range_x
+            + min_x
+        )
 
-        (x_min, y_min), (x_max, y_max) = bounds
+        pixel_y = (
+            (self.image_height - 1 - y_indices)
+            / (self.image_height - 1)
+            * range_y
+            + min_y
+        )
 
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
-        ax.set_aspect("equal")
-        ax.axis("off")
-
-        return fig, ax
+        return pixel_x, pixel_y
 
     def plot_packing(self):
         fig, ax = plt.subplots(
             dpi=self.dpi,
             facecolor="black",
-            subplot_kw={"projection": "3d"}
+            subplot_kw={"projection": "3d"},
         )
 
         for aggregate_id, aggregate in self.aggregates.items():
@@ -110,7 +123,7 @@ class CtDataGenerator:
                 vertices[:, 1],
                 vertices[:, 2],
                 triangles=faces,
-                color=(color / 255, color / 255, color / 255)
+                color=(color / 255, color / 255, color / 255),
             )
 
         ax.set_aspect("equal")
@@ -119,79 +132,280 @@ class CtDataGenerator:
     def _generate_slice(
         self,
         z,
-        filename="slice.png",
-        bounds=((-55, -55), (55, 55))
+        bounds=((-55, -55), (55, 55)),
     ):
         sections = self._get_sections(z)
 
         if not sections:
+            print(f"No sections found at z: {z}")
             return
 
-        fig, ax = self._create_canvas(bounds)
+        canvas = np.zeros(
+            (self.image_height, self.image_width),
+            dtype=np.uint8,
+        )
+
+        pixel_x, pixel_y = self._coordinates_to_pixels(bounds)
 
         for aggregate_id, section_2d in sections.items():
             color = self.aggregate_colors[aggregate_id]
 
             for polygon in section_2d.polygons_full:
-                x, y = polygon.exterior.xy
+                if polygon.is_empty:
+                    continue
 
-                ax.fill(
-                    x,
-                    y,
-                    color=(color / 255, color / 255, color / 255),
-                    antialiased=False
+                poly_mask = shapely.contains_xy(
+                    polygon,
+                    pixel_x,
+                    pixel_y,
                 )
 
-        fig.canvas.draw()
+                if not np.any(poly_mask):
+                    continue
 
-        image = np.asarray(fig.canvas.buffer_rgba())
-        image = image[:, :, :3].mean(axis=2).astype(np.uint8)
+                canvas[poly_mask] = color
 
-        Image.fromarray(image, mode="L").save(filename)
-
-        plt.close(fig)
+        filename = (
+            f"slice_z_{z}_"
+            f"aggregates_{len(sections)}.png"
+        )
+        cv2.imwrite(filename, canvas)
 
     def _generate_mask(
         self,
         z,
-        filename="mask.png",
-        bounds=((-55, -55), (55, 55))
+        bounds=((-55, -55), (55, 55)),
     ):
         sections = self._get_sections(z)
 
         if not sections:
+            print(f"No sections found at z: {z}")
             return
 
-        fig, ax = self._create_canvas(bounds)
+        canvas = np.zeros(
+            (self.image_height, self.image_width),
+            dtype=np.uint8,
+        )
+
+        kernel = np.array(
+            [
+                [0, 1, 0],
+                [1, 1, 1],
+                [0, 1, 0],
+            ],
+            dtype=np.uint8,
+        )
+
+        pixel_x, pixel_y = self._coordinates_to_pixels(bounds)
 
         for section_2d in sections.values():
             for polygon in section_2d.polygons_full:
-                x, y = polygon.exterior.xy
+                if polygon.is_empty:
+                    continue
 
-                ax.fill(
-                    x,
-                    y,
-                    color="white",
-                    antialiased=False
+                poly_mask = shapely.contains_xy(
+                    polygon,
+                    pixel_x,
+                    pixel_y,
                 )
 
-        fig.canvas.draw()
+                if not np.any(poly_mask):
+                    continue
 
-        image = np.asarray(fig.canvas.buffer_rgba())
-        image = image[:, :, :3].mean(axis=2).astype(np.uint8)
+                poly_mask_uint8 = (
+                    poly_mask.astype(np.uint8) * 255
+                )
 
-        Image.fromarray(image, mode="L").save(filename)
+                eroded_mask = cv2.erode(
+                    poly_mask_uint8,
+                    kernel,
+                    iterations=1,
+                )
 
-        plt.close(fig)
+                edge_mask = cv2.subtract(
+                    poly_mask_uint8,
+                    eroded_mask,
+                )
 
-path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_500_20260918_112953/packing_500_20260918_112953.npz"
-ct_generator = CtDataGenerator(path, 512)
+                canvas[poly_mask_uint8 == 255] = 128
+                canvas[edge_mask == 255] = 255
 
-ct_generator.plot_packing()
-ct_generator._generate_slice(11, "slice1.png")
-ct_generator._generate_slice(12, "slice2.png")
-ct_generator._generate_slice(13, "slice3.png")
+        filename = (
+            f"mask_z_{z}_"
+            f"aggregates_{len(sections)}.png"
+        )
 
-ct_generator._generate_mask(11, "mask1.png")
-ct_generator._generate_mask(12, "mask2.png")
-ct_generator._generate_mask(13, "mask3.png")
+        cv2.imwrite(filename, canvas)
+
+    def animate_slicing(
+            self,
+            num_frames=50,
+            z_min=None,
+            z_max=None,
+            filename="slicing.gif",
+            bounds=((-55, -55), (55, 55)),
+            duration=300,
+    ):
+        if z_min is None:
+            z_min = self.z_min
+
+        if z_max is None:
+            z_max = self.z_max
+
+        z_values = np.linspace(z_min, z_max, num_frames)
+
+        figure = plt.figure(
+            figsize=(16, 9),
+            facecolor="black",
+        )
+
+        ax_3d = figure.add_subplot(
+            121,
+            projection="3d",
+            facecolor="black",
+        )
+
+        ax_2d = figure.add_subplot(
+            122,
+            facecolor="black",
+        )
+
+        ax_3d.computed_zorder = False
+
+        for aggregate_id, aggregate in self.aggregates.items():
+            vertices = aggregate["vertices"]
+            faces = aggregate["faces"]
+            color = self.aggregate_colors[aggregate_id] / 255
+
+            ax_3d.plot_trisurf(
+                vertices[:, 0],
+                vertices[:, 1],
+                vertices[:, 2],
+                triangles=faces,
+                color=(color, color, color),
+            )
+
+        (min_x, min_y), (max_x, max_y) = bounds
+
+        ax_3d.set_xlim(min_x, max_x)
+        ax_3d.set_ylim(min_y, max_y)
+        ax_3d.set_zlim(z_min, z_max)
+        ax_3d.set_aspect("equal")
+
+        ax_3d.view_init(
+            elev=0,
+            azim=-90,
+        )
+
+        ax_3d.set_facecolor("black")
+        ax_3d.set_axis_off()
+
+        ax_2d.set_xlim(min_x, max_x)
+        ax_2d.set_ylim(min_y, max_y)
+        ax_2d.set_aspect("equal")
+        ax_2d.axis("off")
+
+        pixel_x, pixel_y = self._coordinates_to_pixels(bounds)
+
+        line_x = [min_x, max_x]
+        line_y = [max_y, max_y]
+
+        slicing_line, = ax_3d.plot(
+            line_x,
+            line_y,
+            [z_values[0], z_values[0]],
+            color="lightgreen",
+            linewidth=2,
+            alpha=0.65,
+            zorder=100,
+        )
+
+        image = ax_2d.imshow(
+            np.zeros(
+                (self.image_height, self.image_width),
+                dtype=np.uint8,
+            ),
+            cmap="gray",
+            vmin=0,
+            vmax=255,
+            extent=[
+                min_x,
+                max_x,
+                min_y,
+                max_y,
+            ],
+            origin="upper",
+        )
+
+        def update(frame):
+            z = z_values[frame]
+
+            sections = self._get_sections(z)
+
+            canvas = np.zeros(
+                (self.image_height, self.image_width),
+                dtype=np.uint8,
+            )
+
+            for aggregate_id, section_2d in sections.items():
+                color = self.aggregate_colors[aggregate_id]
+
+                for polygon in section_2d.polygons_full:
+                    if polygon.is_empty:
+                        continue
+
+                    poly_mask = shapely.contains_xy(
+                        polygon,
+                        pixel_x,
+                        pixel_y,
+                    )
+
+                    if not np.any(poly_mask):
+                        continue
+
+                    canvas[poly_mask] = color
+
+            image.set_data(canvas)
+
+            slicing_line.set_data(
+                line_x,
+                line_y,
+            )
+
+            slicing_line.set_3d_properties(
+                [z, z],
+            )
+
+            return image, slicing_line
+
+        animation = FuncAnimation(
+            figure,
+            update,
+            frames=num_frames,
+            interval=duration,
+            blit=False,
+        )
+
+        animation.save(
+            filename,
+            writer=PillowWriter(
+                fps=1000 / duration,
+            ),
+        )
+
+        plt.close(figure)
+
+
+path = (
+    r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/"
+    r"src/data/polyhedrons/packing_500_20260918_112953/"
+    r"packing_500_20260918_112953.npz"
+)
+
+ct_generator = CtDataGenerator(
+    path,
+    image_size=512,
+    dpi=300,
+)
+
+ct_generator.animate_slicing(30)
