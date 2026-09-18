@@ -11,16 +11,18 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 class CtDataGenerator:
     def __init__(
         self,
-        data_path,
+        packing_path,
         image_size,
         dpi=100,
         min_dimension=1,
         pitch=1,
     ):
-        self.data = np.load(data_path, allow_pickle=True)
+        self.packing_path = packing_path
+        self.data = np.load(self.packing_path, allow_pickle=True)
 
         self.image_width = image_size
         self.image_height = image_size
+
 
         self.dpi = dpi
         self.min_dimension = min_dimension
@@ -132,7 +134,7 @@ class CtDataGenerator:
     def _generate_slice(
         self,
         z,
-        bounds=((-55, -55), (55, 55)),
+        bounds,
     ):
         sections = self._get_sections(z)
 
@@ -165,16 +167,12 @@ class CtDataGenerator:
 
                 canvas[poly_mask] = color
 
-        filename = (
-            f"slice_z_{z}_"
-            f"aggregates_{len(sections)}.png"
-        )
-        cv2.imwrite(filename, canvas)
+        return canvas, len(sections)
 
     def _generate_mask(
         self,
         z,
-        bounds=((-55, -55), (55, 55)),
+        bounds,
     ):
         sections = self._get_sections(z)
 
@@ -230,12 +228,59 @@ class CtDataGenerator:
                 canvas[poly_mask_uint8 == 255] = 128
                 canvas[edge_mask == 255] = 255
 
-        filename = (
-            f"mask_z_{z}_"
-            f"aggregates_{len(sections)}.png"
-        )
+        return canvas, len(sections)
 
-        cv2.imwrite(filename, canvas)
+    def generate_ct_data(
+            self,
+            num_slices=30,
+            z_min=None,
+            z_max=None,
+            bounds=((-55, -55), (55, 55)),
+    ):
+        if z_min is None:
+            z_min = self.z_min
+
+        if z_max is None:
+            z_max = self.z_max
+
+        output_dir = Path(self.packing_path).parent
+
+        slicing_dir = output_dir / "slicing"
+        mask_dir = output_dir / "mask"
+
+        slicing_dir.mkdir(exist_ok=True)
+        mask_dir.mkdir(exist_ok=True)
+
+        # Skip the first and last slides to ensure something is sliced
+        z_values = np.linspace(
+            z_min,
+            z_max,
+            num_slices + 2,
+        )[1:-1]
+
+        for z in z_values:
+            canvas_slice, num_aggregates_slice = self._generate_slice(z, bounds)
+
+            canvas_mask, num_aggregates_mask = self._generate_mask(z, bounds)
+
+            z_string = f"{z:06.2f}".replace(".", "_")
+
+            slicing_filename = (
+                    slicing_dir
+                    / f"slice_z_{z_string}_aggregates_{num_aggregates_slice}.png"
+            )
+
+            mask_filename = (
+                    mask_dir
+                    / f"mask_z_{z_string}_aggregates_{num_aggregates_mask}.png"
+            )
+
+            cv2.imwrite(str(slicing_filename), canvas_slice)
+            cv2.imwrite(str(mask_filename), canvas_mask)
+
+            print(f"Generated slices at z={z:.2f}")
+
+        print(f"Generated {num_slices} slices in: {slicing_dir} and {mask_dir}")
 
     def animate_slicing(
             self,
@@ -401,14 +446,11 @@ class CtDataGenerator:
         plt.close(figure)
 
 
-path = (
-    r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/PRESENTATION/packing_500_20260918_163659.npz"
-)
+path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_500_20260918_112953/packing_500_20260918_112953.npz"
 
 ct_generator = CtDataGenerator(
     path,
     image_size=512,
 )
 
-ct_generator._generate_mask(30)
-ct_generator._generate_slice(30)
+ct_generator.generate_ct_data(10)
