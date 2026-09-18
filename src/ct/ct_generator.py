@@ -270,6 +270,11 @@ class CtDataGenerator:
             facecolor="black",
         )
 
+        figure.tight_layout(
+            pad=0.1,
+            w_pad=0.0,
+        )
+
         ax_3d.computed_zorder = False
 
         for aggregate_id, aggregate in self.aggregates.items():
@@ -397,15 +402,13 @@ class CtDataGenerator:
 
 
 path = (
-    r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/"
-    r"src/data/polyhedrons/packing_500_20260918_112953/"
-    r"packing_500_20260918_112953.npz"
+    r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/PRESENTATION/packing_500_20260918_163659.npz"
 )
 
 ct_generator = CtDataGenerator(
     path,
     image_size=512,
-    dpi=300,
 )
 
-ct_generator.animate_slicing(30)
+ct_generator._generate_mask(30)
+ct_generator._generate_slice(30)
