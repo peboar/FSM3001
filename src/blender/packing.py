@@ -181,16 +181,13 @@ class Packing:
 
             transform = obj.matrix_world
             obj_vertices = obj.data.vertices
-            centroid = Vector((0, 0, 0))
+            centroid = obj.get_centroid()
 
             vertices = []
 
             for vertex in obj_vertices:
                 transformed_vertex = transform @ vertex.co
                 vertices.append(transformed_vertex)
-                centroid += transformed_vertex
-
-            centroid /= len(obj_vertices)
 
             x, y, z = centroid
 
