@@ -126,6 +126,9 @@ class Sphere(Aggregate):
 
         return sphere
 
+    def get_centroid(self):
+        return self.obj.location
+
     def get_bounding_radius(self):
         return self.radius
 
@@ -156,6 +159,8 @@ class PolyHedron(Aggregate):
             collision_shape="CONVEX_HULL",
         )
 
+        self._rescale_axes()
+
     def _create_blender_primitive(self):
         """Generates a procedural convex polyhedron."""
         mesh_data = bpy.data.meshes.new("ConvexHullMesh")
@@ -178,6 +183,35 @@ class PolyHedron(Aggregate):
         bpy.context.scene.collection.objects.link(poly_hedra)
 
         return poly_hedra
+
+    def get_centroid(self):
+        centroid = Vector((0.0, 0.0, 0.0))
+        for vertex in self.obj.data.vertices:
+            centroid += vertex.co
+        centroid /= len(self.obj.data.vertices)
+        return centroid
+
+    def _rescale_axes(self):
+        length = self.obj.dimensions.x
+        depth = self.obj.dimensions.y
+        height = self.obj.dimensions.z
+
+        scale_factors = Vector((
+            self.length/length,
+            self.depth/depth,
+            self.height/height
+        ))
+
+        centroid = self.get_centroid()
+
+        for vertex in self.obj.data.vertices:
+            local_position = vertex.co - centroid
+            scaled_position = local_position * scale_factors
+
+            vertex.co = scaled_position + centroid
+
+        # Update the mass for the scaled dimensions
+        self.obj.rigid_body.mass = self._calculate_mass_from_volume()
 
     def get_bounding_radius(self):
         return max(vertex.co.length for vertex in self.obj.data.vertices)
