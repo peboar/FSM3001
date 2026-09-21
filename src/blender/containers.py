@@ -7,11 +7,11 @@ import bpy
 class Container(ABC):
     """Parent class for handling varying container shapes."""
 
-    def __init__(self, shape, friction, damping, collision_shape="MESH"):
+    def __init__(self, shape, friction, damping):
         self.shape = shape
         self.friction = friction
         self.damping = damping
-        self.collision_shape = collision_shape
+        self.collision_shape = "MESH"
 
         # Remove initial cube
         for obj in list(bpy.data.objects):
@@ -64,7 +64,6 @@ class CylindricalContainer(Container):
             shape="CYLINDER",
             friction=friction,
             damping=damping,
-            collision_shape="MESH",
         )
 
     def _create_blender_primitive(self):

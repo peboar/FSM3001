@@ -1,21 +1,11 @@
 import random
-import sys
 from datetime import datetime
-from pathlib import Path
 
 import bpy
 import numpy as np
 from mathutils import Vector
 
-
-# Get the script path.
-script_path = Path(__file__).resolve()
-
-sys.path.append(str(script_path.parent))
-
-from aggregates import PolyHedron, Sphere
-from containers import CylindricalContainer
-from materials import Material
+from blender.aggregates import PolyHedron, Sphere
 
 
 class Packing:
@@ -134,7 +124,7 @@ class Packing:
                     length, depth, height = material.sample_dimensions(dimension)
 
                     # Random point cloud for convex hull 15 to 35 looks decent.
-                    number_of_points = random.randint(25, 50)
+                    number_of_points = random.randint(20, 35)
 
                     aggregate = PolyHedron(
                         length,
@@ -174,7 +164,7 @@ class Packing:
                 print(
                     f"Generated aggregate {len(self.aggregates)}, "
                     f"{100 * progress:.0f}% of target, "
-                    f"aggregate volume {total_volume} mm³"
+                    f"aggregate volume {total_volume:.0f} mm³"
                 )
 
     def _configure_rigidbody_world(self):
@@ -275,23 +265,3 @@ class Packing:
             bpy.ops.wm.save_as_mainfile(
                 filepath=str(packing_dir / f"{filename}.blend")
             )
-
-
-if __name__ == "__main__":
-    container = CylindricalContainer(50, 305)
-
-    granite = Material("granite", 2650, short_ratio=(0.9, 1.0), long_ratio=(1.0, 1.1))
-    brick = Material("brick", 2070, short_ratio=(0.5, 0.9), long_ratio=(1.2, 1.8))
-
-    packing = Packing(
-        container,
-        "polyhedron",
-        11.2,
-        16,
-        [granite, brick],
-        [0.5, 0.5],
-        target_aggregate_volume=566400,  # [mm³], Blend CT
-    )
-
-    packing.run_simulation()
-    packing.save_packing()
