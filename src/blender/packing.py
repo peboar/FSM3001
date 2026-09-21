@@ -15,6 +15,7 @@ sys.path.append(str(script_path.parent))
 
 from aggregates import PolyHedron, Sphere
 from containers import CylindricalContainer
+from materials import Material
 
 
 class Packing:
@@ -24,11 +25,12 @@ class Packing:
         self,
         container,
         aggregate_type,
-        number_of_aggregates,
         min_dimension,
         max_dimension,
-        densities,
+        materials,
         proportions,
+        number_of_aggregates=None,
+        target_aggregate_volume=None,
     ):
         """
         Initialize the aggregate generation parameters.
@@ -39,27 +41,69 @@ class Packing:
             Container in which the aggregates are generated.
         aggregate_type : str
             Type of aggregate to generate.
-        number_of_aggregates : int
-            Number of aggregates to generate.
         min_dimension : float
-            Minimum dimension of the aggregate.
+            Minimum dimension (sieve size) of the aggregate in [mm].
         max_dimension : float
-            Maximum dimension of the aggregate.
-        densities : list of float
-            Possible aggregate densities.
+            Maximum dimension (sieve size) of the aggregate in [mm].
+        materials : list of Material
+            Aggregate materials, each with density and grain aspect ratios.
         proportions : list of float
-            Relative proportions used to select the densities.
+            Target share of each material by volume (normalised to sum to 1).
+        number_of_aggregates : int, optional
+            Number of aggregates to generate.
+        target_aggregate_volume : float, optional
+            Total volume of the aggregates, without voids, in [mm³].
+
+        Give exactly one of number_of_aggregates and target_aggregate_volume.
         """
+        if (number_of_aggregates is None) == (target_aggregate_volume is None):
+            raise ValueError(
+                "Give either number_of_aggregates or target_aggregate_volume."
+            )
+
+        if len(materials) != len(proportions):
+            raise ValueError("Need one proportion per material.")
+
         self.container = container
         self.aggregate_type = aggregate_type
         self.number_of_aggregates = number_of_aggregates
         self.min_dimension = min_dimension
         self.max_dimension = max_dimension
-        self.densities = densities
-        self.proportions = proportions
+        self.materials = materials
+        self.proportions = np.array(proportions) / np.sum(proportions)
+        self.target_aggregate_volume = target_aggregate_volume
         self.aggregates = []
+        self.aggregate_materials = []  # Material of each aggregate
+
         self._configure_rigidbody_world()
         self._generate_aggregates()
+
+    def _pick_material(self, material_volumes):
+        """Return index of the material furthest below its target volume fraction."""
+        total_volume = sum(material_volumes)
+
+        # No grains yet: start with the first material.
+        if total_volume == 0:
+            return 0
+
+        fractions = np.array(material_volumes) / total_volume
+        surpluses = fractions - self.proportions
+
+        return int(np.argmin(surpluses))
+
+    def _is_finished(self, count, total_volume):
+        """Check if the requested volume or number of aggregates is reached."""
+        if self.target_aggregate_volume is not None:
+            return total_volume >= self.target_aggregate_volume
+
+        return count >= self.number_of_aggregates
+
+    def _progress(self, count, total_volume):
+        """Fraction of the requested aggregates generated so far, from 0 to 1."""
+        if self.target_aggregate_volume is not None:
+            return min(total_volume / self.target_aggregate_volume, 1.0)
+
+        return min(count / self.number_of_aggregates, 1.0)
 
     def _generate_aggregates(self):
         """
@@ -68,44 +112,41 @@ class Packing:
         The generated aggregates are stored in self.aggregates.
         """
         if self.container.get_shape() == "CYLINDER":
-            locations = []
-            cylinder_radius, cylinder_height = (
-                self.container.get_cylinder_dimensions()
-            )
+            cylinder_radius, _ = self.container.get_cylinder_dimensions()
 
             # Start generating aggregates from the bottom of the container.
-            mean_radius = (self.min_dimension + self.max_dimension) / 2
-            std_dev_radius = mean_radius / 3
-
             prev_bounding_radius = 0
-            for i in range(self.number_of_aggregates):
-                # Select the aggregate density according to the specified proportions.
-                density = random.choices(
-                    self.densities,
-                    weights=self.proportions,
-                    k=1,
-                )[0]
+            total_volume = 0
+            material_volumes = [0.0] * len(self.materials)
 
-                # Loop until a valid aggregate size is found.
-                while True:
-                    # random.gauss pulls from a true normal distribution.
-                    dimension = random.gauss(mean_radius, std_dev_radius)
-                    if self.min_dimension <= dimension <= self.max_dimension:
-                        break
+            while not self._is_finished(len(self.aggregates), total_volume):
+                # Select the material furthest below its target volume fraction.
+                material_index = self._pick_material(material_volumes)
+                material = self.materials[material_index]
+
+                dimension = random.uniform(self.min_dimension, self.max_dimension)
 
                 # Create the selected aggregate type.
                 if self.aggregate_type == "sphere":
-                    aggregate = Sphere(dimension, 3, density)
+                    aggregate = Sphere(dimension, 3, material.density)
                 elif self.aggregate_type == "polyhedron":
+                    # Dimensions for the convex hull using predefined aspect ratios
+                    length, depth, height = material.sample_dimensions(dimension)
+
                     # Random point cloud for convex hull 15 to 35 looks decent.
-                    number_of_points = random.randint(15, 35)
+                    number_of_points = random.randint(25, 50)
+
                     aggregate = PolyHedron(
-                        dimension,
-                        dimension,
-                        dimension,
+                        length,
+                        depth,
+                        height,
                         number_of_points,
-                        2650,
+                        material.density,
                     )
+
+                volume = aggregate.get_volume()
+                total_volume += volume
+                material_volumes[material_index] += volume
 
                 bounding_radius = aggregate.get_bounding_radius()
                 allowed_radius = cylinder_radius - bounding_radius
@@ -119,7 +160,7 @@ class Packing:
                     x = random.gauss(0, std_dev)
                     y = random.gauss(0, std_dev)
 
-                if i == 0:
+                if not self.aggregates:
                     z = 1.01 * bounding_radius
                 else:
                     z += 1.01 * (bounding_radius + prev_bounding_radius)
@@ -127,10 +168,13 @@ class Packing:
                 prev_bounding_radius = bounding_radius
                 aggregate.location((x, y, z))
                 self.aggregates.append(aggregate)
+                self.aggregate_materials.append(material)
 
+                progress = self._progress(len(self.aggregates), total_volume)
                 print(
-                    f"Generating aggregate "
-                    f"{i + 1}/{self.number_of_aggregates}"
+                    f"Generated aggregate {len(self.aggregates)}, "
+                    f"{100 * progress:.0f}% of target, "
+                    f"aggregate volume {total_volume} mm³"
                 )
 
     def _configure_rigidbody_world(self):
@@ -181,13 +225,16 @@ class Packing:
 
             transform = obj.matrix_world
             obj_vertices = obj.data.vertices
-            centroid = obj.get_centroid()
+            centroid = Vector((0, 0, 0))
 
             vertices = []
 
             for vertex in obj_vertices:
                 transformed_vertex = transform @ vertex.co
                 vertices.append(transformed_vertex)
+                centroid += transformed_vertex
+
+            centroid /= len(obj_vertices)
 
             x, y, z = centroid
 
@@ -203,9 +250,12 @@ class Packing:
                 for polygon in obj.data.polygons
             ])
 
+            material = self.aggregate_materials[aggregate_id]
+
             aggregates[aggregate_id] = {
                 "vertices": vertices,
-                "faces": faces
+                "faces": faces,
+                "material": material.name,
             }
 
             valid_aggregates += 1
@@ -226,17 +276,21 @@ class Packing:
                 filepath=str(packing_dir / f"{filename}.blend")
             )
 
+
 if __name__ == "__main__":
-    container = CylindricalContainer(50, 205)
+    container = CylindricalContainer(50, 305)
+
+    granite = Material("granite", 2650, short_ratio=(0.9, 1.0), long_ratio=(1.0, 1.1))
+    brick = Material("brick", 2070, short_ratio=(0.5, 0.9), long_ratio=(1.2, 1.8))
 
     packing = Packing(
         container,
         "polyhedron",
-        500,
-        11.6,
+        11.2,
         16,
-        [2650],
-        [1],
+        [granite, brick],
+        [0.5, 0.5],
+        target_aggregate_volume=566400,  # [mm³], Blend CT
     )
 
     packing.run_simulation()

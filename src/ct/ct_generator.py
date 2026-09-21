@@ -446,11 +446,11 @@ class CtDataGenerator:
         plt.close(figure)
 
 
-path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_500_20260918_112953/packing_500_20260918_112953.npz"
+path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_546_20260921_132053/packing_546_20260921_132053.npz"
 
 ct_generator = CtDataGenerator(
     path,
     image_size=512,
 )
 
-ct_generator.generate_ct_data(10)
+ct_generator.plot_packing()

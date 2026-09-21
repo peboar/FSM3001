@@ -37,15 +37,20 @@ class Aggregate(ABC):
     def location(self, location):
         self.obj.location = Vector(location)
 
-    def _calculate_mass_from_volume(self):
-        """Calculates the true geometry volume using BMesh and returns Mass."""
+    def get_volume(self):
+        """Calculates the true geometry volume using BMesh."""
         bm = bmesh.new()
         bm.from_mesh(self.obj.data)
 
         bm.transform(self.obj.matrix_world)
-
         volume = bm.calc_volume()
         bm.free()
+
+        return volume
+
+    def _calculate_mass_from_volume(self):
+        """Returns the mass of the aggregate."""
+        volume = self.get_volume()
 
         return abs(volume) * self.density
 
@@ -141,7 +146,7 @@ class PolyHedron(Aggregate):
         length,
         depth,
         height,
-        number_of_points=15,
+        number_of_points=25,
         density=2650,
         friction=0.45,
         damping=0.1,
