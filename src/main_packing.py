@@ -5,7 +5,7 @@ script_path = Path(__file__).resolve()
 
 sys.path.append(str(script_path.parent))
 
-import config as cfg
+import config_data as cfg
 from blender.containers import CylindricalContainer
 from blender.materials import Material
 from blender.packing import Packing

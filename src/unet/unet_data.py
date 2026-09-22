@@ -44,19 +44,17 @@ class SingleUnetDataset(Dataset):
 
         # Normalize gray scale colors to be between 0-1
         image = torch.from_numpy(np.array(image, dtype=np.float32) / 255.0)
-        # Adds another dimension corresponding to the batch size
+        # Adds another dimension corresponding to the batch size. Required for input
         image = image.unsqueeze(0)
 
         mask_array = np.array(mask, dtype=np.uint8)
-        # 0: Black voids, 1: Gray aggregates, 2: White aggregate boundaries
-        mask_to_values = {0: 0, 128: 1, 255: 2}
-        for mask_value, class_label in mask_to_values.items():
-            mask_array[mask_array == mask_value] = class_label
 
-        mask = Image.from_numpy(mask_array)
+        # Clean template for the mask output. Uses int64 to ensure a PyTorch LongTensor
+        class_mask = np.zeros_like(mask_array, dtype=np.int64)
+        # 0: Black voids, 1: Gray aggregates, 2: White aggregate boundaries
+        class_mask[mask_array == 128] = 1
+        class_mask[mask_array == 255] = 2
+
+        mask = torch.from_numpy(class_mask)
 
         return image, mask
-
-
-path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_398_20260921_221507"
-a = SingleUnetDataset(path)
