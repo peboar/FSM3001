@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from unet_parts import DoubleConv, DownSample, UpSample
+from unet.unet_parts import DoubleConv, DownSample, UpSample
 
 class UNet(nn.Module):
     def __init__(self, in_channels, num_classes):

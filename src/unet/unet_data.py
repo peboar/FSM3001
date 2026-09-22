@@ -6,14 +6,31 @@ import torch
 from torch.utils.data import Dataset
 from unet.unet_augment import ImageAugmenter
 
-class SingleUnetDataset(Dataset):
-    def __init__(self, packing_path, mode="train", image_size=512, noise_type="none"):
-        if mode not in {"train", "validation", "test"}:
-            raise ValueError(f"mode {mode} must be train, validation or test")
 
+def compute_class_weights(packing_paths):
+    """Use normalized inverse pixel area as Weights."""
+
+    pixel_counts = np.zeros(3, dtype=np.int64)
+
+    for path in packing_paths:
+        mask_paths = sorted((Path(path) / "masks").glob("*.png"))
+        for mask_path in mask_paths:
+            mask_array = np.array(Image.open(mask_path).convert("L"))
+            # Compute all pixels
+            pixel_counts[0] += (mask_array == 0).sum()
+            pixel_counts[1] += (mask_array == 128).sum()
+            pixel_counts[2] += (mask_array == 255).sum()
+
+    weights = 1.0 / pixel_counts
+    weights = weights / weights.sum()
+
+    return torch.from_numpy(weights).float()
+
+
+class SingleUnetDataset(Dataset):
+    def __init__(self, packing_path, image_size=512, noise_type="none"):
         self.packing_path = Path(packing_path)
         self.image_size = image_size
-        self.mode = mode
         self.augmenter = ImageAugmenter(noise_type)
 
         self.path_slices = self.packing_path / "slices"
@@ -44,7 +61,7 @@ class SingleUnetDataset(Dataset):
 
         # Normalize gray scale colors to be between 0-1
         image = torch.from_numpy(np.array(image, dtype=np.float32) / 255.0)
-        # Adds another dimension corresponding to the batch size. Required for input
+        # Adds channel dimension (H, W) -> (1, H, W)
         image = image.unsqueeze(0)
 
         mask_array = np.array(mask, dtype=np.uint8)
