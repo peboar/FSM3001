@@ -4,7 +4,6 @@ import sys
 script_path = Path(__file__).resolve()
 
 sys.path.append(str(script_path.parent))
-sys.path.append(str(script_path.parent.parent))
 
 import config as cfg
 from blender.containers import CylindricalContainer

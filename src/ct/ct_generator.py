@@ -23,7 +23,6 @@ class CtDataGenerator:
         self.image_width = image_size
         self.image_height = image_size
 
-
         self.dpi = dpi
         self.min_dimension = min_dimension
         self.pitch = pitch
@@ -31,9 +30,13 @@ class CtDataGenerator:
 
         self.aggregates = self.data["aggregates"].item()
 
+        self.texture_map = {
+            "brick": 68,  # First image (Dark Charcoal)
+            "granite": 93  # Second image (Slate/Anthracite Gray)
+        }
         self.aggregate_colors = {
-            aggregate_id: np.random.randint(150, 210)
-            for aggregate_id in self.aggregates
+            aggregate_id: self.texture_map.get(aggregate.get("material"), 128)
+            for aggregate_id, aggregate in self.aggregates.items()
         }
 
     @property
@@ -117,6 +120,7 @@ class CtDataGenerator:
         for aggregate_id, aggregate in self.aggregates.items():
             vertices = aggregate["vertices"]
             faces = aggregate["faces"]
+            material = aggregate["material"]
 
             color = self.aggregate_colors[aggregate_id]
 
@@ -446,7 +450,7 @@ class CtDataGenerator:
         plt.close(figure)
 
 
-path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_546_20260921_132053/packing_546_20260921_132053.npz"
+path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_398_20260921_221507.npz"
 
 ct_generator = CtDataGenerator(
     path,
