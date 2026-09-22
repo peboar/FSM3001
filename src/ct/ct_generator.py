@@ -14,6 +14,7 @@ class CtDataGenerator:
         packing_path,
         image_size,
         dpi=100,
+        clear_slices=True,
         min_dimension=1,
         pitch=1,
     ):
@@ -24,6 +25,8 @@ class CtDataGenerator:
         self.image_height = image_size
 
         self.dpi = dpi
+        self.clear_slices = clear_slices
+
         self.min_dimension = min_dimension
         self.pitch = pitch
         self.script_path = Path(__file__).resolve()
@@ -249,11 +252,16 @@ class CtDataGenerator:
 
         output_dir = Path(self.packing_path).parent
 
-        slicing_dir = output_dir / "slicing"
-        mask_dir = output_dir / "mask"
+        slicing_dir = output_dir / "slices"
+        mask_dir = output_dir / "masks"
 
         slicing_dir.mkdir(exist_ok=True)
         mask_dir.mkdir(exist_ok=True)
+
+        # Clear the folders
+        if self.clear_slices:
+            [f.unlink() for f in slicing_dir.glob("*") if f.is_file()]
+            [f.unlink() for f in mask_dir.glob("*") if f.is_file()]
 
         # Skip the first and last slides to ensure something is sliced
         z_values = np.linspace(
@@ -450,11 +458,11 @@ class CtDataGenerator:
         plt.close(figure)
 
 
-path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_398_20260921_221507.npz"
+path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_398_20260921_221507/packing_398_20260921_221507.npz"
 
 ct_generator = CtDataGenerator(
     path,
     image_size=512,
 )
 
-ct_generator.plot_packing()
+ct_generator.generate_ct_data(10)
