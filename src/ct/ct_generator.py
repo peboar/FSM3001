@@ -2,10 +2,12 @@ from pathlib import Path
 
 import cv2
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation, PillowWriter
 import numpy as np
 import shapely
 import trimesh
-from matplotlib.animation import FuncAnimation, PillowWriter
+
+from ct_texture import ExtractCtTexture
 
 
 class CtDataGenerator:
@@ -13,32 +15,47 @@ class CtDataGenerator:
         self,
         packing_path,
         image_size,
+        image_extension="tif",
         dpi=100,
         clear_slices=True,
-        min_dimension=1,
-        pitch=1,
     ):
+        self.script_path = Path(__file__).resolve().parent
         self.packing_path = packing_path
         self.data = np.load(self.packing_path, allow_pickle=True)
 
         self.image_width = image_size
         self.image_height = image_size
-
+        self.image_extension = image_extension
         self.dpi = dpi
         self.clear_slices = clear_slices
 
-        self.min_dimension = min_dimension
-        self.pitch = pitch
-        self.script_path = Path(__file__).resolve()
+        self.materials = {
+            aggregate.get("material")
+            for aggregate in self.aggregates.values()
+            if aggregate.get("material") is not None
+        }
+
+        self.phases = list(self.materials) + ["voids"]
+
+        self.textures = {}
+        for phase in self.phases:
+            texture_path = self.script_path / phase
+            texture = ExtractCtTexture(
+                folder_path=texture_path,
+                image_size=image_size,
+                image_extension=self.image_extension
+            )
+            self.textures[phase] = texture
+
+        self.phase_colors = {
+            phase: texture.extract_mean_gray()
+            for phase, texture in self.textures.items()
+        }
 
         self.aggregates = self.data["aggregates"].item()
 
-        self.texture_map = {
-            "brick": 68,  # First image (Dark Charcoal)
-            "granite": 93  # Second image (Slate/Anthracite Gray)
-        }
         self.aggregate_colors = {
-            aggregate_id: self.texture_map.get(aggregate.get("material"), 128)
+            aggregate_id: self.phase_colors.get(aggregate.get("material"), 128)
             for aggregate_id, aggregate in self.aggregates.items()
         }
 
@@ -279,12 +296,12 @@ class CtDataGenerator:
 
             slicing_filename = (
                     slicing_dir
-                    / f"slice_z_{z_string}_aggregates_{num_aggregates_slice}.png"
+                    / f"slice_z_{z_string}_aggregates_{num_aggregates_slice}.{self.image_extension}"
             )
 
             mask_filename = (
                     mask_dir
-                    / f"mask_z_{z_string}_aggregates_{num_aggregates_mask}.png"
+                    / f"mask_z_{z_string}_aggregates_{num_aggregates_mask}.{self.image_extension}"
             )
 
             cv2.imwrite(str(slicing_filename), canvas_slice)
