@@ -36,7 +36,7 @@ class CtDataGenerator:
             if aggregate.get("material") is not None
         }
 
-        self.phases = list(self.materials) + ["voids"]
+        self.phases = list(self.materials) + ["void"]
 
         self.textures = {}
         for phase in self.phases:
