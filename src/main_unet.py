@@ -6,6 +6,7 @@ from torch.utils.data import ConcatDataset, DataLoader, random_split
 from tqdm import tqdm
 
 import config_unet as cfg
+from ct import ct_texture
 from ct.ct_texture import ExtractCtTexture
 from unet.unet import UNet
 from unet.unet_data import SingleUnetDataset, compute_class_weights
@@ -31,6 +32,11 @@ for phase in phases:
 
 phase_colors = {
     phase: texture.extract_mean_gray()
+    for phase, texture in textures.items()
+}
+
+ct_textures = {
+    phase: texture.extract_ct_texture()
     for phase, texture in textures.items()
 }
 
@@ -78,7 +84,8 @@ training_datasets = [
         packing_path=packing,
         image_size=cfg.IMAGE_SIZE,
         noise_type=cfg.NOISE_TYPE,
-        phase_colors=phase_colors
+        phase_colors=phase_colors,
+        ct_textures=ct_textures,
     )
     for packing in training_packings
 ]
@@ -88,7 +95,8 @@ validation_datasets = [
         packing_path=packing,
         image_size=cfg.IMAGE_SIZE,
         noise_type=cfg.NOISE_TYPE,
-        phase_colors=phase_colors
+        phase_colors=phase_colors,
+        ct_texture=ct_textures,
     )
     for packing in validation_packings
 ]
@@ -98,7 +106,8 @@ testing_datasets = [
         packing_path=packing,
         image_size=cfg.IMAGE_SIZE,
         noise_type=cfg.NOISE_TYPE,
-        phase_colors=phase_colors
+        phase_colors=phase_colors,
+        ct_texture=ct_textures,
     )
     for packing in testing_packings
 ]
