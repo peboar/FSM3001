@@ -55,6 +55,8 @@ class ExtractCtTexture:
         for image in images:
             image_weights.append(image.width * image.height)
             image = self._resize_image(image)
+
+            # Remove the average brightness
             image_array = np.array(image) - np.average(np.array(image))
 
             # Apply the Hanning window to get rid of boundary effects
