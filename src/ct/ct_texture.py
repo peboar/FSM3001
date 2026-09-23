@@ -46,7 +46,7 @@ class ExtractCtTexture:
         )
         return resized_image
 
-    def extract_magnitude_spectrum(self):
+    def extract_ct_texture(self):
         """Extract the average fft amplitude of all patches"""
         images = self._make_grayscale()
         image_weights = []
