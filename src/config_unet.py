@@ -1,8 +1,16 @@
+import config_data as cfg_data
+
+# Only two materials for now. Phases are used to apply texture from the real scans
+PHASES = [
+    cfg_data.GRANITE_NAME,
+    cfg_data.BRICK_NAME,
+    "void",
+]
+
 DATA_TYPE = "polyhedrons"
 
 TRAIN_RATIO = 0.70
 VALIDATION_RATIO = 0.15
-TEST_RATIO = 0.15
 
 RANDOM_SEED = 1
 
