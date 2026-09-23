@@ -29,10 +29,20 @@ def compute_class_weights(packing_paths):
 
 
 class SingleUnetDataset(Dataset):
-    def __init__(self, packing_path, image_size=512, noise_type="none"):
+    def __init__(
+        self,
+        packing_path,
+        image_size=512,
+        noise_type="none",
+        phase_colors=None,
+    ):
         self.packing_path = Path(packing_path)
         self.image_size = image_size
-        self.augmenter = ImageAugmenter(noise_type)
+
+        self.augmenter = ImageAugmenter(
+            noise_type=noise_type,
+            phase_colors=phase_colors,
+        )
 
         self.path_slices = self.packing_path / "slices"
         self.path_masks = self.packing_path / "masks"
