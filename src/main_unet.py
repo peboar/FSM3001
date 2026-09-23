@@ -113,7 +113,7 @@ optimizer = optim.Adam(
     model.parameters(),
     lr=cfg.LEARNING_RATE,
 )
-
+# Weights used for the loss function
 class_weights = compute_class_weights(training_packings).to(device)
 
 criterion = nn.CrossEntropyLoss(weight=class_weights)

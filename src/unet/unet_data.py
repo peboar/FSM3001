@@ -53,9 +53,10 @@ class SingleUnetDataset(Dataset):
         image = Image.open(self.slices[index]).convert("L")
         mask = Image.open(self.masks[index]).convert("L")
 
-        size = (self.image_size, self.image_size)
-        image = image.resize(size, Image.BILINEAR)
-        mask = mask.resize(size, Image.NEAREST)
+        image_resolution = (self.image_size, self.image_size)
+
+        image = image.resize(image_resolution, Image.BILINEAR)
+        mask = mask.resize(image_resolution, Image.NEAREST)
 
         image = self.augmenter.augment(image)
 
