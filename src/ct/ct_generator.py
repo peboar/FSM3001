@@ -22,6 +22,7 @@ class CtDataGenerator:
         self.script_path = Path(__file__).resolve().parent
         self.packing_path = packing_path
         self.data = np.load(self.packing_path, allow_pickle=True)
+        self.aggregates = self.data["aggregates"].item()
 
         self.image_width = image_size
         self.image_height = image_size
@@ -51,8 +52,6 @@ class CtDataGenerator:
             phase: texture.extract_mean_gray()
             for phase, texture in self.textures.items()
         }
-
-        self.aggregates = self.data["aggregates"].item()
 
         self.aggregate_colors = {
             aggregate_id: self.phase_colors.get(aggregate.get("material"), 128)
@@ -166,10 +165,13 @@ class CtDataGenerator:
             print(f"No sections found at z: {z}")
             return
 
-        canvas = np.zeros(
+        void_color = self.phase_colors.get("voids", 0)
+
+        # Initialize the canvas fully filled with the void color
+        canvas = np.ones(
             (self.image_height, self.image_width),
             dtype=np.uint8,
-        )
+        ) * void_color
 
         pixel_x, pixel_y = self._coordinates_to_pixels(bounds)
 
@@ -267,10 +269,8 @@ class CtDataGenerator:
         if z_max is None:
             z_max = self.z_max
 
-        output_dir = Path(self.packing_path).parent
-
-        slicing_dir = output_dir / "slices"
-        mask_dir = output_dir / "masks"
+        slicing_dir = self.script_path / "slices"
+        mask_dir = self.script_path / "masks"
 
         slicing_dir.mkdir(exist_ok=True)
         mask_dir.mkdir(exist_ok=True)
