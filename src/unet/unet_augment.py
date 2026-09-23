@@ -10,11 +10,12 @@ from PIL import Image
 
 
 class ImageAugmenter:
-    def __init__(self, noise_type="none"):
+    def __init__(self, noise_type="none", phase_colors=None):
         if noise_type not in {"none", "ct"}:
             raise ValueError(f"Unknown noise_type: {noise_type}")
 
         self.noise_type = noise_type
+        self.phase_colors = phase_colors
 
     def augment(self, image: Image.Image) -> Image.Image:
         image = self._apply_blur(image)

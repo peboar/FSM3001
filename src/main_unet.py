@@ -13,6 +13,26 @@ from unet.unet_data import SingleUnetDataset, compute_class_weights
 
 project_path = Path(__file__).resolve().parent
 data_path = project_path / "data" / cfg.DATA_TYPE
+ct_path = project_path / "ct"
+
+# Obtain the colors for all the phases. Required for the augmentation step
+phases = cfg.PHASES
+
+textures = {}
+for phase in phases:
+    texture_path = ct_path / phase
+
+    texture = ExtractCtTexture(
+        folder_path=texture_path,
+        image_size=cfg.IMAGE_SIZE,
+        image_extension=cfg.IMAGE_EXTENSION
+    )
+    textures[phase] = texture
+
+phase_colors = {
+    phase: texture.extract_mean_gray()
+    for phase, texture in textures.items()
+}
 
 device = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
@@ -55,27 +75,30 @@ training_packings, validation_packings, testing_packings = random_split(
 
 training_datasets = [
     SingleUnetDataset(
-        packing,
-        cfg.IMAGE_SIZE,
-        cfg.NOISE_TYPE,
+        packing_path=packing,
+        image_size=cfg.IMAGE_SIZE,
+        noise_type=cfg.NOISE_TYPE,
+        phase_colors=phase_colors
     )
     for packing in training_packings
 ]
 
 validation_datasets = [
     SingleUnetDataset(
-        packing,
-        cfg.IMAGE_SIZE,
-        cfg.NOISE_TYPE,
+        packing_path=packing,
+        image_size=cfg.IMAGE_SIZE,
+        noise_type=cfg.NOISE_TYPE,
+        phase_colors=phase_colors
     )
     for packing in validation_packings
 ]
 
 testing_datasets = [
     SingleUnetDataset(
-        packing,
-        cfg.IMAGE_SIZE,
-        cfg.NOISE_TYPE,
+        packing_path=packing,
+        image_size=cfg.IMAGE_SIZE,
+        noise_type=cfg.NOISE_TYPE,
+        phase_colors=phase_colors
     )
     for packing in testing_packings
 ]
