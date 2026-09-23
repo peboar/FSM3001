@@ -1,5 +1,4 @@
 from pathlib import Path
-import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
@@ -7,7 +6,7 @@ from PIL import Image
 class ExtractCtTexture:
     """Handles mean color extraction and noise extraction from patches of real CT-scans"""
     def __init__(self, folder_path, image_size=512, image_extension="tif"):
-        self.folder_path = folder_path
+        self.folder_path = Path(folder_path)
         self.image_resolution = (image_size, image_size)
         self.image_paths = sorted(
             self.folder_path.glob(f"*.{image_extension}")
@@ -66,12 +65,3 @@ class ExtractCtTexture:
             magnitudes.append(magnitude)
 
         return np.average(magnitudes, weights=image_weights, axis=0)
-
-
-
-
-
-
-
-
-
