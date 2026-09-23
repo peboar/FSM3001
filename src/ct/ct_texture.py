@@ -17,6 +17,11 @@ class ExtractCtTexture:
         self.image_paths = sorted(
             self.folder_path.glob(f"*.{image_extension}")
         )
+        # Get rid of sharp boundary effect by applying a hanning filter
+        window_height = np.hanning(image_size)
+        window_width = np.hanning(image_size)
+
+        self.hanning_2d = np.outer(window_height, window_width)
 
     def _make_grayscale(self):
         if not self.image_paths:
@@ -48,26 +53,18 @@ class ExtractCtTexture:
         return resized_image
 
     def extract_magnitude_spectrum(self):
+        """Extract the average fft amplitude of all patches"""
         images = self._make_grayscale()
         image_weights = []
         magnitudes = []
 
         for image in images:
-
             image_weights.append(image.width * image.height)
             image = self._resize_image(image)
             image_array = np.array(image) - np.average(np.array(image))
 
-            # Extract dimensions from the resized image
-            height, width = image.size
-
-            # Get rid of sharp boundary effect by applying a hanning filter
-            window_height = np.hanning(self.image_resolution[0])
-            window_width = np.hanning(self.image_resolution[1])
-
-            window_hanning = np.outer(window_height, window_width)
-
-            fourier_transform = np.fft.fft2(image_array*window_hanning)
+            # Apply the Hanning window to get rid of boundary effects
+            fourier_transform = np.fft.fft2(image_array*self.hanning_2d)
             fourier_transform_shift = np.fft.fftshift(fourier_transform)
             magnitude = np.abs(fourier_transform_shift)
 
