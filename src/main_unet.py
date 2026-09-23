@@ -40,6 +40,11 @@ ct_textures = {
     for phase, texture in textures.items()
 }
 
+ct_intensities = {
+    phase: texture.extract_intensity_std
+    for phase, texture in textures.items()
+}
+
 device = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
 )
@@ -86,6 +91,7 @@ training_datasets = [
         noise_type=cfg.NOISE_TYPE,
         phase_colors=phase_colors,
         ct_textures=ct_textures,
+        ct_intensities=ct_intensities
     )
     for packing in training_packings
 ]
@@ -97,6 +103,7 @@ validation_datasets = [
         noise_type=cfg.NOISE_TYPE,
         phase_colors=phase_colors,
         ct_texture=ct_textures,
+        ct_intensities=ct_intensities
     )
     for packing in validation_packings
 ]
@@ -108,6 +115,7 @@ testing_datasets = [
         noise_type=cfg.NOISE_TYPE,
         phase_colors=phase_colors,
         ct_texture=ct_textures,
+        ct_intensities=ct_intensities
     )
     for packing in testing_packings
 ]

@@ -16,6 +16,7 @@ class ImageAugmenter:
             noise_type="none",
             phase_colors=None,
             ct_textures=None,
+            ct_intensity=None
     ):
 
         if noise_type not in {"none", "ct"}:
@@ -92,4 +93,50 @@ class ImageAugmenter:
         texture = texture - texture.mean()
 
         return texture
+
+
+if __name__ == "__main__":
+    from pathlib import Path
+
+    from ct.ct_texture import ExtractCtTexture
+
+    project_path = Path(__file__).resolve().parent.parent
+    ct_path = project_path / "ct"
+
+    image_path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_398_20260921_221507/slices/slice_z_047_21_aggregates_52.tif"
+
+    image_size = 512
+    phases = ["granite", "brick", "void"]
+
+    textures = {}
+    for phase in phases:
+        texture = ExtractCtTexture(
+            folder_path=ct_path / phase,
+            image_size=image_size,
+            image_extension="tif",
+        )
+        textures[phase] = texture
+
+    phase_colors = {
+        phase: texture.extract_mean_gray()
+        for phase, texture in textures.items()
+    }
+
+    ct_textures = {
+        phase: texture.extract_ct_texture()
+        for phase, texture in textures.items()
+    }
+
+    image = Image.open(image_path).convert("L")
+
+    augmenter = ImageAugmenter(
+        noise_type="ct",
+        phase_colors=phase_colors,
+        ct_textures=ct_textures,
+    )
+
+    augmented_image = augmenter.augment(image)
+
+    image.show(title="Original")
+    augmented_image.show(title="CT texture")
 
