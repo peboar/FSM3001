@@ -8,7 +8,6 @@ TODO: no augmentations are implemented and the images are returned without any a
 """
 import numpy as np
 from PIL import Image
-from trimesh.permutate import noise
 
 
 class ImageAugmenter:
@@ -46,20 +45,26 @@ class ImageAugmenter:
         return image
 
     def _apply_ct_noise(self, image: Image.Image) -> Image.Image:
-        image_array = np.array(image)
+        image_array = np.array(image, dtype=np.float32)
         noisy_image = image_array.copy()
 
         for phase, color in self.phase_colors.items():
             mask = (image_array == color)
 
-            if not any(mask):
+            if not np.any(mask):
                 continue
 
             texture = self.ct_textures[phase]
+            # Generate random texture infused with noise
             noise = self._generate_ct_texture(texture)
 
-        return noisy_image
+            # Add the texture to the phase
+            noisy_image[mask] += noise[mask]
 
+        # Remove values outside the valid 0-255 gray-scale range
+        noisy_image = np.clip(noisy_image, 0, 255)
+
+        return Image.fromarray(noisy_image.astype(np.uint8))
 
     def _generate_ct_texture(self, magnitude):
         """Generate a random image used to create a unique CT texture."""
@@ -75,12 +80,16 @@ class ImageAugmenter:
 
         phase = np.angle(random_fft)
 
+        # Reconstruct new fft with noise
         spectrum = magnitude * np.exp(1j * phase)
 
+        # Reconstruct texture with random noise
         texture = np.fft.ifft2(
             np.fft.ifftshift(spectrum)
         ).real
 
+        # Noise should not shift the data, so remove the mean
         texture = texture - texture.mean()
 
         return texture
+
