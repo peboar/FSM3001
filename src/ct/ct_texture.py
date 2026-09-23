@@ -38,7 +38,7 @@ class ExtractCtTexture:
             image_weights.append(image.width * image.height)
             image_means.append(np.average(np.array(image)))
 
-        return np.average(image_means, weights=image_weights)
+        return int(np.average(image_means, weights=image_weights))
 
     def _resize_image(self, image):
 
