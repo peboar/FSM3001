@@ -11,7 +11,7 @@ class ExtractCtTexture:
         self.image_paths = sorted(
             self.folder_path.glob(f"*.{image_extension}")
         )
-        # Get rid of sharp boundary effect by applying a hanning filter
+
         window_height = np.hanning(image_size)
         window_width = np.hanning(image_size)
 

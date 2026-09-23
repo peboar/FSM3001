@@ -16,7 +16,6 @@ class ImageAugmenter:
 
         self.noise_type = noise_type
         self.phase_colors = phase_colors
-        print(self.phase_colors)
 
     def augment(self, image: Image.Image) -> Image.Image:
         image = self._apply_blur(image)
