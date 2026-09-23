@@ -3,11 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-path = Path(__file__).resolve().parent
-brick_path = path / "brick"
-granite_path = path / "granite"
-void_path = path / "void"
-
 
 class ExtractCtTexture:
     """Handles mean color extraction and noise extraction from patches of real CT-scans"""
