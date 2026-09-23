@@ -295,13 +295,13 @@ class CtDataGenerator:
             z_string = f"{z:06.2f}".replace(".", "_")
 
             slicing_filename = (
-                    slicing_dir
-                    / f"slice_z_{z_string}_aggregates_{num_aggregates_slice}.{self.image_extension}"
+                slicing_dir
+                / f"slice_z_{z_string}_aggregates_{num_aggregates_slice}.{self.image_extension}"
             )
 
             mask_filename = (
-                    mask_dir
-                    / f"mask_z_{z_string}_aggregates_{num_aggregates_mask}.{self.image_extension}"
+                mask_dir
+                / f"mask_z_{z_string}_aggregates_{num_aggregates_mask}.{self.image_extension}"
             )
 
             cv2.imwrite(str(slicing_filename), canvas_slice)
