@@ -9,7 +9,7 @@ granite_path = path / "granite"
 void_path = path / "void"
 
 
-class ExtractCtNoise:
+class ExtractCtTexture:
     """Handles mean color extraction and noise extraction from patches of real CT-scans"""
     def __init__(self, folder_path, image_size=512, image_extension="tif"):
         self.folder_path = folder_path
@@ -40,14 +40,46 @@ class ExtractCtNoise:
 
         return np.average(image_means, weights=image_weights)
 
-    def _upscale_image(self):
+    def _resize_image(self, image):
+
+        resized_image = image.resize(
+            self.image_resolution, Image.Resampling.BICUBIC
+        )
+        return resized_image
+
+    def extract_magnitude_spectrum(self):
         images = self._make_grayscale()
-        upscaled_images = []
+        image_weights = []
+        magnitudes = []
 
         for image in images:
-            resized_image = image.resize(
-                self.image_resolution, Image.Resampling.BICUBIC
-            )
-            upscaled_images.append(np.array(resized_image))
 
-        return upscaled_images
+            image_weights.append(image.width * image.height)
+            image = self._resize_image(image)
+            image_array = np.array(image) - np.average(np.array(image))
+
+            # Extract dimensions from the resized image
+            height, width = image.size
+
+            # Get rid of sharp boundary effect by applying a hanning filter
+            window_height = np.hanning(self.image_resolution[0])
+            window_width = np.hanning(self.image_resolution[1])
+
+            window_hanning = np.outer(window_height, window_width)
+
+            fourier_transform = np.fft.fft2(image_array*window_hanning)
+            fourier_transform_shift = np.fft.fftshift(fourier_transform)
+            magnitude = np.abs(fourier_transform_shift)
+
+            magnitudes.append(magnitude)
+
+        return np.average(magnitudes, weights=image_weights, axis=0)
+
+
+
+
+
+
+
+
+
