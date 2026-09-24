@@ -140,7 +140,6 @@ class CtDataGenerator:
         for aggregate_id, aggregate in self.aggregates.items():
             vertices = aggregate["vertices"]
             faces = aggregate["faces"]
-            material = aggregate["material"]
 
             color = self.aggregate_colors[aggregate_id]
 
@@ -174,11 +173,18 @@ class CtDataGenerator:
             dtype=np.uint8,
         ) * void_color
 
+        kernel = np.array(
+            [
+                [0, 1, 0],
+                [1, 1, 1],
+                [0, 1, 0],
+            ],
+            dtype=np.uint8,
+        )
+
         pixel_x, pixel_y = self._coordinates_to_pixels(bounds)
 
         for aggregate_id, section_2d in sections.items():
-            color = self.aggregate_colors[aggregate_id]
-
             for polygon in section_2d.polygons_full:
                 if polygon.is_empty:
                     continue
@@ -189,10 +195,28 @@ class CtDataGenerator:
                     pixel_y,
                 )
 
+                color = self.aggregate_colors[aggregate_id]
+
                 if not np.any(poly_mask):
                     continue
 
-                canvas[poly_mask] = color
+                poly_mask_uint8 = (
+                    poly_mask.astype(np.uint8) * 255
+                )
+
+                eroded_mask = cv2.erode(
+                    poly_mask_uint8,
+                    kernel,
+                    iterations=1,
+                )
+
+                edge_mask = cv2.subtract(
+                    poly_mask_uint8,
+                    eroded_mask,
+                )
+
+                canvas[poly_mask_uint8 == 255] = color
+                canvas[edge_mask == 255] = 255
 
         return canvas, len(sections)
 
