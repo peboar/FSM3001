@@ -167,6 +167,8 @@ class CtDataGenerator:
             return
 
         # Initialize the canvas fully filled with the void color
+        void_color = self.phase_colors["void"]
+
         canvas = np.ones(
             (self.image_height, self.image_width),
             dtype=np.uint8,

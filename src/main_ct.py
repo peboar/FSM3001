@@ -20,13 +20,14 @@ if __name__ == "__main__":
             print("Fallback to the first one")
 
         packing_path = packing_paths[0]
+        if i == 0:
+            ct_generator = CtDataGenerator(
+                packing_path=packing_path,
+                image_size=cfg.IMAGE_SIZE,
+                image_extension=cfg.IMAGE_EXTENSION,
+                dpi=cfg.DPI,
+                clear_slices=cfg.CLEAR_SLICES
+            )
 
-        ct_generator = CtDataGenerator(
-            packing_path=packing_path,
-            image_size=cfg.IMAGE_SIZE,
-            image_extension=cfg.IMAGE_EXTENSION,
-            dpi=cfg.DPI,
-            clear_slices=cfg.CLEAR_SLICES
-        )
-
-        ct_generator.generate_ct_data(cfg.NUMBER_OF_SLICES)
+            ct_generator.generate_ct_data(cfg.NUMBER_OF_SLICES)
+        i+=1
