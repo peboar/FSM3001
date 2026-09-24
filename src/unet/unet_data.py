@@ -34,16 +34,14 @@ class SingleUnetDataset(Dataset):
         packing_path,
         image_size=512,
         noise_type="none",
-        phase_colors=None,
-        ct_textures=None
+        textures=None
     ):
         self.packing_path = Path(packing_path)
         self.image_size = image_size
 
         self.augmenter = ImageAugmenter(
             noise_type=noise_type,
-            phase_colors=phase_colors,
-            ct_textures=ct_textures
+            textures=textures
         )
 
         self.path_slices = self.packing_path / "slices"

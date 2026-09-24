@@ -16,7 +16,6 @@ class ExtractCtTexture:
         window_width = np.hanning(image_size)
 
         self.hanning_2d = np.outer(window_height, window_width)
-        print(self.extract_intensity_std())
 
     def _make_grayscale(self):
         if not self.image_paths:
@@ -28,7 +27,7 @@ class ExtractCtTexture:
 
         return gray_scale_images
 
-    def extract_mean_gray(self):
+    def extract_gray_mean(self):
         images = self._make_grayscale()
 
         image_means = []
@@ -39,6 +38,17 @@ class ExtractCtTexture:
             image_means.append(np.average(np.array(image)))
 
         return int(np.average(image_means, weights=image_weights))
+
+    def extract_gray_standard_deviation(self):
+        images = self._make_grayscale()
+
+        image_weights = []
+        standard_deviations = []
+
+        for image in images:
+            image_weights.append(image.width * image.height)
+            standard_deviations.append(np.array(image, dtype=np.float32).std())
+        return np.average(standard_deviations, weights=image_weights)
 
     def _resize_image(self, image):
 
@@ -68,21 +78,3 @@ class ExtractCtTexture:
             magnitudes.append(magnitude)
 
         return np.average(magnitudes, weights=image_weights, axis=0)
-
-    def extract_intensity_std(self):
-        """Extract the average intensity standard deviation of all patches."""
-        images = self._make_grayscale()
-        image_weights = []
-        standard_deviations = []
-
-        for image in images:
-            image_weights.append(image.width * image.height)
-            image_array = np.array(
-                self._resize_image(image),
-                dtype=np.float32,
-            )
-
-            image_array -= image_array.mean()
-            standard_deviations.append(image_array.std())
-
-        return np.average(standard_deviations, weights=image_weights)

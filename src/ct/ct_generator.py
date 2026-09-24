@@ -50,7 +50,7 @@ class CtDataGenerator:
             self.textures[phase] = texture
 
         self.phase_colors = {
-            phase: texture.extract_mean_gray()
+            phase: texture.extract_gray_mean()
             for phase, texture in self.textures.items()
         }
 
