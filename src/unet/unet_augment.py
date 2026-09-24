@@ -33,14 +33,14 @@ class ImageAugmenter:
             mask = image_array == color
             masks.append(mask)
 
-        image = self._apply_blur(image)
         image = self._apply_noise(image, masks)
+        image = self._apply_blur(image, 1.5)
 
         return image
 
-    def _apply_blur(self, image: Image.Image) -> Image.Image:
+    def _apply_blur(self, image: Image.Image, radius) -> Image.Image:
         """Apply Gaussian blur."""
-        return image.filter(ImageFilter.GaussianBlur(radius=1.5))
+        return image.filter(ImageFilter.GaussianBlur(radius=radius))
 
     def _apply_noise(self, image, masks):
         if self.noise_type == "ct":
@@ -110,6 +110,8 @@ if __name__ == "__main__":
 
     augmented_image = augmenter.augment(image)
 
-    image.show(title="Original")
+    real_ct = Image.open(r"/home/per/Downloads/Granite brick SS Bef Y_1777.tif")
+    real_ct = real_ct.resize((512, 512))
+    real_ct.show(title="Real")
     augmented_image.show(title="CT texture")
 
