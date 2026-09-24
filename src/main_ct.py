@@ -8,6 +8,7 @@ project_path = Path(__file__).resolve().parent
 data_path = project_path / "data" / (cfg.AGGREGATE_TYPE + "s")
 
 if __name__ == "__main__":
+    i = 0
     for path in data_path.iterdir():
         packing_paths  = list(path.glob("*.npz"))
 
@@ -28,4 +29,4 @@ if __name__ == "__main__":
             clear_slices=cfg.CLEAR_SLICES
         )
 
-        print(ct_generator)
+        ct_generator.generate_ct_data(cfg.NUMBER_OF_SLICES)
