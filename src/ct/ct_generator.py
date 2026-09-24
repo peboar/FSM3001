@@ -307,9 +307,11 @@ class CtDataGenerator:
             cv2.imwrite(str(slicing_filename), canvas_slice)
             cv2.imwrite(str(mask_filename), canvas_mask)
 
-            print(f"Generated slices at z={z:.2f}")
+            print(f"    Generated slices at z={z:.2f}")
 
-        print(f"Generated {num_slices} slices in: {slicing_dir} and {mask_dir}")
+        print(f"    Generated {num_slices} slices in:")
+        print(f"    {slicing_dir}")
+        print(f"    {mask_dir}")
 
     def animate_slicing(
             self,
