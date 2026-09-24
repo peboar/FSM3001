@@ -34,7 +34,7 @@ class ImageAugmenter:
             masks.append(mask)
 
         image = self._apply_noise(image, masks)
-        image = self._apply_blur(image, 1.5)
+        image = self._apply_blur(image, 1)
 
         return image
 
