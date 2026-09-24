@@ -31,6 +31,9 @@ SAVE_BLEND = False
 # CT-image generator parameters
 IMAGE_SIZE = 512
 IMAGE_EXTENSION = "tif" # No dot
+DPI = 100
+CLEAR_SLICES = True
 NUMBER_OF_SLICES = 30
+
 
 

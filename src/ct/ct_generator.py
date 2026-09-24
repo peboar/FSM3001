@@ -471,10 +471,3 @@ class CtDataGenerator:
         )
 
         plt.close(figure)
-
-
-path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_398_20260921_221507/packing_398_20260921_221507.npz"
-
-
-
-ct_generator.generate_ct_data(30)
