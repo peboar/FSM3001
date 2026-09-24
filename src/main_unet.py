@@ -6,7 +6,6 @@ from torch.utils.data import ConcatDataset, DataLoader, random_split
 from tqdm import tqdm
 
 import config_unet as cfg
-from ct import ct_texture
 from ct.ct_texture import ExtractCtTexture
 from unet.unet import UNet
 from unet.unet_data import SingleUnetDataset, compute_class_weights
