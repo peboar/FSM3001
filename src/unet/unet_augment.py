@@ -3,96 +3,80 @@ Image augmentation for the synthetic slices.
 Augmentations are applied to make the synthetic slices look more similar to real CT-scans.
 All augmentations are applied before the image is converted to a tensor.
 The mask is untouched.
-
-TODO: no augmentations are implemented and the images are returned without any augmentations.
 """
+
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 
 class ImageAugmenter:
     def __init__(
-            self,
-            noise_type="none",
-            phase_colors=None,
-            ct_textures=None,
-            ct_intensity=None
+        self,
+        noise_type="none",
+        textures=None,
     ):
-
-        if noise_type not in {"none", "ct"}:
+        if noise_type not in {"none", "artificial", "ct"}:
             raise ValueError(f"Unknown noise_type: {noise_type}")
 
         self.noise_type = noise_type
-        self.phase_colors = phase_colors
-        self.ct_textures = ct_textures
+        self.textures = textures
 
     def augment(self, image: Image.Image) -> Image.Image:
+        if self.noise_type == "none":
+            return image
+
+        image_array = np.array(image, dtype=np.float32)
+
+        masks = []
+        for texture in self.textures.values():
+            color = texture.extract_gray_mean()
+            mask = image_array == color
+            masks.append(mask)
+
         image = self._apply_blur(image)
-        image = self._apply_noise(image)
+        image = self._apply_noise(image, masks)
+
         return image
 
     def _apply_blur(self, image: Image.Image) -> Image.Image:
-        # TODO: Gaussian blur
-        return image
+        """Apply Gaussian blur."""
+        return image.filter(ImageFilter.GaussianBlur(radius=1.5))
 
-    def _apply_noise(self, image: Image.Image) -> Image.Image:
+    def _apply_noise(self, image, masks):
         if self.noise_type == "ct":
-            return self._apply_ct_noise(image)
+            return self._apply_ct_noise(image, masks)
+
+        if self.noise_type == "artificial":
+            return self._apply_artificial_noise(image, masks)
 
         return image
 
-    def _apply_gaussian_noise(self, image: Image.Image) -> Image.Image:
-        # TODO: Random noise using a Gaussian distribution
-        return image
-
-    def _apply_ct_noise(self, image: Image.Image) -> Image.Image:
+    def _apply_artificial_noise(self, image, masks):
         image_array = np.array(image, dtype=np.float32)
         noisy_image = image_array.copy()
 
-        for phase, color in self.phase_colors.items():
-            mask = (image_array == color)
-
+        for texture, mask in zip(self.textures.values(), masks):
             if not np.any(mask):
                 continue
 
-            texture = self.ct_textures[phase]
-            # Generate random texture infused with noise
-            noise = self._generate_ct_texture(texture)
+            standard_deviation = texture.extract_gray_standard_deviation()
 
-            # Add the texture to the phase
+            noise = np.random.normal(
+                0,
+                standard_deviation,
+                image_array.shape,
+            )
+
             noisy_image[mask] += noise[mask]
 
-        # Remove values outside the valid 0-255 gray-scale range
         noisy_image = np.clip(noisy_image, 0, 255)
 
         return Image.fromarray(noisy_image.astype(np.uint8))
 
-    def _generate_ct_texture(self, magnitude):
-        """Generate a random image used to create a unique CT texture."""
-        random_image = np.random.normal(
-            0,
-            1,
-            magnitude.shape,
-        )
+    def _apply_ct_noise(self, image, masks):
+        """TODO: implement real CT texture augmentation."""
+        return image
 
-        random_fft = np.fft.fftshift(
-            np.fft.fft2(random_image)
-        )
-
-        phase = np.angle(random_fft)
-
-        # Reconstruct new fft with noise
-        spectrum = magnitude * np.exp(1j * phase)
-
-        # Reconstruct texture with random noise
-        texture = np.fft.ifft2(
-            np.fft.ifftshift(spectrum)
-        ).real
-
-        # Noise should not shift the data, so remove the mean
-        texture = texture - texture.mean()
-
-        return texture
 
 
 if __name__ == "__main__":
@@ -117,22 +101,11 @@ if __name__ == "__main__":
         )
         textures[phase] = texture
 
-    phase_colors = {
-        phase: texture.extract_mean_gray()
-        for phase, texture in textures.items()
-    }
-
-    ct_textures = {
-        phase: texture.extract_ct_texture()
-        for phase, texture in textures.items()
-    }
-
     image = Image.open(image_path).convert("L")
 
     augmenter = ImageAugmenter(
-        noise_type="ct",
-        phase_colors=phase_colors,
-        ct_textures=ct_textures,
+        noise_type="artificial",
+        textures=textures,
     )
 
     augmented_image = augmenter.augment(image)
