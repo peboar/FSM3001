@@ -205,7 +205,6 @@ class Packing:
 
     def save_packing(self, save_blend=False):
         script_path = Path(__file__).resolve()
-        print(script_path)
         project_dir = script_path.parent.parent
         output_dir = project_dir / "data" / f"{self.aggregate_type}s"
         output_dir.mkdir(parents=True, exist_ok=True)
