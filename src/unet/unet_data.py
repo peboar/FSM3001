@@ -8,21 +8,21 @@ from torch.utils.data import Dataset
 from unet.unet_augment import ImageAugmenter
 
 
-def compute_class_weights(packing_paths):
+def compute_class_weights(packing_paths, image_extension):
     """Use normalized inverse pixel area as Weights."""
 
     pixel_counts = np.zeros(3, dtype=np.int64)
 
     for path in packing_paths:
-        mask_paths = sorted((Path(path) / "masks").glob("*.png"))
+        mask_paths = sorted((Path(path) / "masks").glob(f"*.{image_extension}"))
         for mask_path in mask_paths:
             mask_array = np.array(Image.open(mask_path).convert("L"))
             # Compute all pixels
             pixel_counts[0] += (mask_array == 0).sum()
             pixel_counts[1] += (mask_array == 128).sum()
             pixel_counts[2] += (mask_array == 255).sum()
-
-    weights = 1.0 / pixel_counts
+    print(pixel_counts)
+    weights = 1.0 / (pixel_counts)
     weights = weights / weights.sum()
 
     return torch.from_numpy(weights).float()
@@ -32,7 +32,8 @@ class SingleUnetDataset(Dataset):
     def __init__(
         self,
         packing_path,
-        image_size=512,
+        image_size,
+        image_extension,
         noise_type="none",
         textures=None
     ):
@@ -47,8 +48,12 @@ class SingleUnetDataset(Dataset):
         self.path_slices = self.packing_path / "slices"
         self.path_masks = self.packing_path / "masks"
 
-        self.slices = sorted([image for image in self.path_slices.glob("*.png") if image.is_file()])
-        self.masks = sorted([image for image in self.path_masks.glob("*.png") if image.is_file()])
+        self.slices = sorted(
+            [image for image in self.path_slices.glob(f"*.{image_extension}") if image.is_file()]
+        )
+        self.masks = sorted(
+            [image for image in self.path_masks.glob(f"*.{image_extension}") if image.is_file()]
+        )
 
         if not self.slices:
             raise RuntimeError(f"No slices found in {self.path_slices}")

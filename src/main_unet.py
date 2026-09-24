@@ -72,6 +72,7 @@ training_datasets = [
     SingleUnetDataset(
         packing_path=packing,
         image_size=cfg.IMAGE_SIZE,
+        image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
         textures=textures,
     )
@@ -82,6 +83,7 @@ validation_datasets = [
     SingleUnetDataset(
         packing_path=packing,
         image_size=cfg.IMAGE_SIZE,
+        image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
         textures=textures,
     )
@@ -92,6 +94,7 @@ testing_datasets = [
     SingleUnetDataset(
         packing_path=packing,
         image_size=cfg.IMAGE_SIZE,
+        image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
         textures=textures,
     )
@@ -133,7 +136,7 @@ optimizer = optim.Adam(
     lr=cfg.LEARNING_RATE,
 )
 # Weights used for the loss function
-class_weights = compute_class_weights(training_packings).to(device)
+class_weights = compute_class_weights(training_packings, cfg.IMAGE_EXTENSION).to(device)
 
 criterion = nn.CrossEntropyLoss(weight=class_weights)
 
