@@ -27,3 +27,10 @@ TOTAL_FRAMES = 1000
 
 # Save blender output file
 SAVE_BLEND = False
+
+# CT-image generator parameters
+IMAGE_SIZE = 512
+IMAGE_EXTENSION = "tif" # No dot
+NUMBER_OF_SLICES = 30
+
+

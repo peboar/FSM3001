@@ -475,9 +475,6 @@ class CtDataGenerator:
 
 path = r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/src/data/polyhedrons/packing_398_20260921_221507/packing_398_20260921_221507.npz"
 
-ct_generator = CtDataGenerator(
-    path,
-    image_size=512,
-)
 
-ct_generator.generate_ct_data(10)
+
+ct_generator.generate_ct_data(30)

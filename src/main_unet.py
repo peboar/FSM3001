@@ -13,7 +13,7 @@ from unet.unet_data import SingleUnetDataset, compute_class_weights
 
 
 project_path = Path(__file__).resolve().parent
-data_path = project_path / "data" / cfg.DATA_TYPE
+data_path = project_path / "data" / (cfg.AGGREGATE_TYPE + "s")
 ct_path = project_path / "ct"
 
 # Obtain the colors for all the phases. Required for the augmentation step
