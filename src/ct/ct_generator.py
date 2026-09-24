@@ -7,7 +7,7 @@ import numpy as np
 import shapely
 import trimesh
 
-from ct_texture import ExtractCtTexture
+from ct.ct_texture import ExtractCtTexture
 
 
 class CtDataGenerator:
