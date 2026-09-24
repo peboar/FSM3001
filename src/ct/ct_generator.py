@@ -45,7 +45,7 @@ class CtDataGenerator:
             texture = ExtractCtTexture(
                 folder_path=texture_path,
                 image_size=image_size,
-                image_extension=self.image_extension
+                image_extension=self.image_extension,
             )
             self.textures[phase] = texture
 
@@ -55,7 +55,10 @@ class CtDataGenerator:
         }
 
         self.aggregate_colors = {
-            aggregate_id: self.phase_colors.get(aggregate.get("material"), 128)
+            aggregate_id: self.phase_colors.get(
+                aggregate.get("material"),
+                128,
+            )
             for aggregate_id, aggregate in self.aggregates.items()
         }
 
@@ -158,7 +161,7 @@ class CtDataGenerator:
         self,
         z,
         bounds,
-        edge_factor = 1
+        edge_factor=1,
     ):
         sections = self._get_sections(z)
 
@@ -166,13 +169,15 @@ class CtDataGenerator:
             print(f"No sections found at z: {z}")
             return
 
-        # Initialize the canvas fully filled with the void color
         void_color = self.phase_colors["void"]
 
-        canvas = np.ones(
-            (self.image_height, self.image_width),
-            dtype=np.uint8,
-        ) * void_color
+        canvas = (
+            np.ones(
+                (self.image_height, self.image_width),
+                dtype=np.uint8,
+            )
+            * void_color
+        )
 
         kernel = np.array(
             [
@@ -196,14 +201,14 @@ class CtDataGenerator:
                     pixel_y,
                 )
 
-                color = self.aggregate_colors[aggregate_id]
-                edge_color = edge_factor * color
-
                 if not np.any(poly_mask):
                     continue
 
+                color = self.aggregate_colors[aggregate_id]
+                edge_color = int(color * edge_factor)
+
                 poly_mask_uint8 = (
-                    poly_mask.astype(np.uint8) * edge_color
+                    poly_mask.astype(np.uint8) * 255
                 )
 
                 eroded_mask = cv2.erode(
@@ -217,8 +222,8 @@ class CtDataGenerator:
                     eroded_mask,
                 )
 
-                canvas[poly_mask_uint8 == edge_color] = color
-                canvas[edge_mask == edge_color] = edge_color
+                canvas[poly_mask_uint8 == 255] = color
+                canvas[edge_mask == 255] = edge_color
 
         return canvas, len(sections)
 
@@ -284,30 +289,37 @@ class CtDataGenerator:
         return canvas, len(sections)
 
     def generate_ct_data(
-            self,
-            number_of_slices,
-            bounds,
-            edge_color=1,
-            z_min=None,
-            z_max=None
+        self,
+        number_of_slices,
+        bounds,
+        edge_color=1,
+        z_min=None,
+        z_max=None,
     ):
         if z_min is None:
             z_min = self.z_min
 
         if z_max is None:
             z_max = self.z_max
+
         slicing_dir = self.output_directory / "slices"
         mask_dir = self.output_directory / "masks"
 
         slicing_dir.mkdir(exist_ok=True)
         mask_dir.mkdir(exist_ok=True)
 
-        # Clear the folders
         if self.clear_slices:
-            [f.unlink() for f in slicing_dir.glob("*") if f.is_file()]
-            [f.unlink() for f in mask_dir.glob("*") if f.is_file()]
+            [
+                f.unlink()
+                for f in slicing_dir.glob("*")
+                if f.is_file()
+            ]
+            [
+                f.unlink()
+                for f in mask_dir.glob("*")
+                if f.is_file()
+            ]
 
-        # Skip the first and last slides to ensure something is sliced
         z_values = np.linspace(
             z_min,
             z_max,
@@ -315,24 +327,49 @@ class CtDataGenerator:
         )[1:-1]
 
         for z in z_values:
-            canvas_slice, num_aggregates_slice = self._generate_slice(z, bounds, edge_color)
+            (
+                canvas_slice,
+                num_aggregates_slice,
+            ) = self._generate_slice(
+                z,
+                bounds,
+                edge_color,
+            )
 
-            canvas_mask, num_aggregates_mask = self._generate_mask(z, bounds)
+            (
+                canvas_mask,
+                num_aggregates_mask,
+            ) = self._generate_mask(
+                z,
+                bounds,
+            )
 
             z_string = f"{z:06.2f}".replace(".", "_")
 
             slicing_filename = (
                 slicing_dir
-                / f"slice_z_{z_string}_aggregates_{num_aggregates_slice}.{self.image_extension}"
+                / (
+                    f"slice_z_{z_string}_aggregates_"
+                    f"{num_aggregates_slice}.{self.image_extension}"
+                )
             )
 
             mask_filename = (
                 mask_dir
-                / f"mask_z_{z_string}_aggregates_{num_aggregates_mask}.{self.image_extension}"
+                / (
+                    f"mask_z_{z_string}_aggregates_"
+                    f"{num_aggregates_mask}.{self.image_extension}"
+                )
             )
 
-            cv2.imwrite(str(slicing_filename), canvas_slice)
-            cv2.imwrite(str(mask_filename), canvas_mask)
+            cv2.imwrite(
+                str(slicing_filename),
+                canvas_slice,
+            )
+            cv2.imwrite(
+                str(mask_filename),
+                canvas_mask,
+            )
 
             print(f"    Generated slices at z={z:.2f}")
 
@@ -341,13 +378,13 @@ class CtDataGenerator:
         print(f"    {mask_dir}")
 
     def animate_slicing(
-            self,
-            num_frames,
-            bounds,
-            z_min=None,
-            z_max=None,
-            filename="slicing.gif",
-            duration=300,
+        self,
+        num_frames,
+        bounds,
+        z_min=None,
+        z_max=None,
+        filename="slicing.gif",
+        duration=300,
     ):
         if z_min is None:
             z_min = self.z_min
@@ -355,7 +392,11 @@ class CtDataGenerator:
         if z_max is None:
             z_max = self.z_max
 
-        z_values = np.linspace(z_min, z_max, num_frames)
+        z_values = np.linspace(
+            z_min,
+            z_max,
+            num_frames,
+        )
 
         figure = plt.figure(
             figsize=(16, 9),

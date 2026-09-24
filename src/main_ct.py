@@ -35,9 +35,6 @@ if __name__ == "__main__":
             f"({index}/{number_of_packings})"
         )
 
-        if index != 1:
-            continue
-
         ct_generator = CtDataGenerator(
             packing_path=packing_path,
             image_size=cfg.IMAGE_SIZE,
