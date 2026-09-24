@@ -8,7 +8,10 @@ from torch.utils.data import Dataset
 from unet.unet_augment import ImageAugmenter
 
 
-def compute_class_weights(packing_paths, image_extension):
+def compute_class_weights(
+        packing_paths,
+        image_extension="tif"
+):
     """Use normalized inverse pixel area as Weights."""
 
     pixel_counts = np.zeros(3, dtype=np.int64)
@@ -21,7 +24,7 @@ def compute_class_weights(packing_paths, image_extension):
             pixel_counts[0] += (mask_array == 0).sum()
             pixel_counts[1] += (mask_array == 128).sum()
             pixel_counts[2] += (mask_array == 255).sum()
-    print(pixel_counts)
+
     weights = 1.0 / (pixel_counts)
     weights = weights / weights.sum()
 
@@ -32,8 +35,8 @@ class SingleUnetDataset(Dataset):
     def __init__(
         self,
         packing_path,
-        image_size,
-        image_extension,
+        image_size=512,
+        image_extension="tif",
         noise_type="none",
         textures=None
     ):
