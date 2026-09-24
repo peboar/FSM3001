@@ -8,7 +8,7 @@ from ct.ct_generator import CtDataGenerator
 project_path = Path(__file__).resolve().parent
 data_path = project_path / "data" / (cfg.AGGREGATE_TYPE + "s")
 
-slice_bounds = ((-1.1*cfg.RADIUS, -1.1*cfg.RADIUS), (1.1*cfg.RADIUS, 1.1*cfg.RADIUS))
+slice_bounds = ((-cfg.RADIUS, -cfg.RADIUS), (cfg.RADIUS, cfg.RADIUS))
 
 if __name__ == "__main__":
     packing_dirs = sorted(data_path.iterdir())
