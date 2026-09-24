@@ -158,6 +158,7 @@ class CtDataGenerator:
         self,
         z,
         bounds,
+        edge_factor = 1
     ):
         sections = self._get_sections(z)
 
@@ -196,12 +197,13 @@ class CtDataGenerator:
                 )
 
                 color = self.aggregate_colors[aggregate_id]
+                edge_color = edge_factor * color
 
                 if not np.any(poly_mask):
                     continue
 
                 poly_mask_uint8 = (
-                    poly_mask.astype(np.uint8) * 255
+                    poly_mask.astype(np.uint8) * edge_color
                 )
 
                 eroded_mask = cv2.erode(
@@ -215,8 +217,8 @@ class CtDataGenerator:
                     eroded_mask,
                 )
 
-                canvas[poly_mask_uint8 == 255] = color
-                canvas[edge_mask == 255] = 255
+                canvas[poly_mask_uint8 == edge_color] = color
+                canvas[edge_mask == edge_color] = edge_color
 
         return canvas, len(sections)
 
@@ -283,10 +285,11 @@ class CtDataGenerator:
 
     def generate_ct_data(
             self,
-            num_slices=30,
+            number_of_slices,
+            bounds,
+            edge_color=1,
             z_min=None,
-            z_max=None,
-            bounds=((-55, -55), (55, 55)),
+            z_max=None
     ):
         if z_min is None:
             z_min = self.z_min
@@ -308,11 +311,11 @@ class CtDataGenerator:
         z_values = np.linspace(
             z_min,
             z_max,
-            num_slices + 2,
+            number_of_slices + 2,
         )[1:-1]
 
         for z in z_values:
-            canvas_slice, num_aggregates_slice = self._generate_slice(z, bounds)
+            canvas_slice, num_aggregates_slice = self._generate_slice(z, bounds, edge_color)
 
             canvas_mask, num_aggregates_mask = self._generate_mask(z, bounds)
 
@@ -333,17 +336,17 @@ class CtDataGenerator:
 
             print(f"    Generated slices at z={z:.2f}")
 
-        print(f"    Generated {num_slices} slices in:")
+        print(f"    Generated {number_of_slices} slices in:")
         print(f"    {slicing_dir}")
         print(f"    {mask_dir}")
 
     def animate_slicing(
             self,
-            num_frames=50,
+            num_frames,
+            bounds,
             z_min=None,
             z_max=None,
             filename="slicing.gif",
-            bounds=((-55, -55), (55, 55)),
             duration=300,
     ):
         if z_min is None:
