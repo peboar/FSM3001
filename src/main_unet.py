@@ -110,18 +110,21 @@ training_dataloader = DataLoader(
     dataset=training_dataset,
     batch_size=cfg.BATCH_SIZE,
     shuffle=True,
+    num_workers=cfg.NUM_WORKERS,
 )
 
 validation_dataloader = DataLoader(
     dataset=validation_dataset,
     batch_size=cfg.BATCH_SIZE,
     shuffle=False,
+    num_workers=cfg.NUM_WORKERS,
 )
 
 testing_dataloader = DataLoader(
     dataset=testing_dataset,
     batch_size=cfg.BATCH_SIZE,
     shuffle=False,
+    num_workers=cfg.NUM_WORKERS,
 )
 
 model = UNet(
