@@ -34,7 +34,7 @@ phase_colors = {
     for phase, texture in textures.items()
 }
 
-phase_standard_deviation = {
+phase_standard_deviations = {
     phase: texture.extract_gray_standard_deviation()
     for phase, texture in textures.items()
 }
@@ -85,7 +85,7 @@ training_datasets = [
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
         phase_colors=phase_colors,
-        phase_standard_deviations=phase_standard_deviation,
+        phase_standard_deviations=phase_standard_deviations,
     )
     for packing in training_packings
 ]
@@ -97,7 +97,7 @@ validation_datasets = [
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
         phase_colors=phase_colors,
-        phase_standard_deviations=phase_standard_deviation,    )
+        phase_standard_deviations=phase_standard_deviations,    )
     for packing in validation_packings
 ]
 
@@ -108,7 +108,7 @@ testing_datasets = [
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
         phase_colors=phase_colors,
-        phase_standard_deviations=phase_standard_deviation,    )
+        phase_standard_deviations=phase_standard_deviations,    )
     for packing in testing_packings
 ]
 

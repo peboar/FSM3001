@@ -7,6 +7,7 @@ The mask is untouched.
 
 import numpy as np
 from PIL import Image, ImageFilter
+from scipy import ndimage
 
 
 class ImageAugmenter:
@@ -32,7 +33,7 @@ class ImageAugmenter:
         image_array = np.array(image, dtype=np.float32)
         masks = [image_array == color for color in self.phase_colors.values()]
 
-        image = self._apply_blur(image, radius=3.2)  # edge
+        image = self._apply_blur(image, radius=1.6)  # blur
         image = self._apply_noise(image, masks)  # noise added last, amplitude survives
 
         return image
