@@ -211,10 +211,21 @@ for epoch in tqdm(range(cfg.NUM_EPOCHS)):
         best_validation_loss = loss_validation
         torch.save(model.state_dict(), str(checkpoint_path))
 
+# Load best model
+model.load_state_dict(
+    torch.load(
+        checkpoint_path,
+        map_location=device,
+    )
+)
+
+model.eval()
+
 # Testing
-true_positive = np.zeros(3, dtype=np.int64)
-predicted_pixels = np.zeros(3, dtype=np.int64)
-ground_truth_pixels = np.zeros(3, dtype=np.int64)
+
+true_positive = np.zeros(cfg.NUM_CLASSES, dtype=np.int64)
+predicted_pixels = np.zeros(cfg.NUM_CLASSES, dtype=np.int64)
+ground_truth_pixels = np.zeros(cfg.NUM_CLASSES, dtype=np.int64)
 
 for i, packing in enumerate(testing_packings):
     packing = Path(packing)
@@ -227,7 +238,7 @@ for i, packing in enumerate(testing_packings):
     if cfg.CLEAR_INFERENCE:
         [f.unlink() for f in inference_path.glob("*") if f.is_file()]
 
-    print(f"Generating inference plots for {packing.name} ({i}/{number_of_testing_packings})")
+    print(f"Generating inference plots for {packing.name} ({i+1}/{number_of_testing_packings})")
 
     with torch.no_grad():
         for index, (image, mask) in enumerate(loader):
@@ -237,7 +248,7 @@ for i, packing in enumerate(testing_packings):
             prediction = torch.argmax(output, dim=1).squeeze(0).cpu().numpy()
             ground_truth = mask.squeeze(0).numpy()
 
-            for class_index in range(3):
+            for class_index in range(cfg.NUM_CLASSES):
                 true_class = ground_truth == class_index
                 predicted_class = prediction == class_index
                 true_positive[class_index] += np.sum(true_class & predicted_class)
@@ -252,21 +263,16 @@ for i, packing in enumerate(testing_packings):
             inference_name = original_name.replace("slice", "inference", 1)
             Image.fromarray(prediction_mask).save(inference_path / inference_name)
 
-overall_true_positive = np.sum(true_positive)
-overall_predicted_pixels = np.sum(predicted_pixels)
-overall_ground_truth_pixels = np.sum(ground_truth_pixels)
-
-overall_dice = (
-    2 * overall_true_positive
-    / (overall_predicted_pixels + overall_ground_truth_pixels)
-)
 
 dice = (
     2 * true_positive
     / (predicted_pixels + ground_truth_pixels)
 )
 
+overall_dice = np.mean(dice)
+
 print("\nTest results")
+print("============")
 print(f"Overall Dice:    {overall_dice:.4f}")
 print(f"Void Dice:       {dice[0]:.4f}")
 print(f"Aggregate Dice:  {dice[1]:.4f}")
