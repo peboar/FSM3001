@@ -35,3 +35,6 @@ PIN_MEMORY = True
 USE_CLASS_WEIGHTS = True
 
 NOISE_TYPE = "artificial"
+
+# Testing
+CLEAR_INFERENCE = True
