@@ -30,7 +30,7 @@ class ImageAugmenter:
         image_array = np.array(image, dtype=np.float32)
 
         masks = []
-        for color in self.values():
+        for color in self.phase_colors.values():
             mask = image_array == color
             masks.append(mask)
 
