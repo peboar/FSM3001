@@ -263,7 +263,6 @@ for i, packing in enumerate(testing_packings):
             inference_name = original_name.replace("slice", "inference", 1)
             Image.fromarray(prediction_mask).save(inference_path / inference_name)
 
-
 dice = (
     2 * true_positive
     / (predicted_pixels + ground_truth_pixels)
