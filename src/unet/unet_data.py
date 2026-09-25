@@ -36,10 +36,11 @@ class SingleUnetDataset(Dataset):
     def __init__(
         self,
         packing_path,
-        phase_standard_deviations,
         image_size=512,
         image_extension="tif",
         noise_type="none",
+        phase_colors=None,
+        phase_standard_deviations=None,
     ):
         self.packing_path = Path(packing_path)
         self.image_size = image_size
