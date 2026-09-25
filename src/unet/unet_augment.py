@@ -60,7 +60,7 @@ class ImageAugmenter:
                 continue
 
             noise = np.random.normal(0, 1, image_array.shape)
-            noise = ndimage.gaussian_filter(noise,sigma=0.6)  # small correlation length, its own blur
+            noise = ndimage.gaussian_filter(noise, sigma=0.6)  # small correlation length, its own blur
             noise = noise / noise.std() * standard_deviation  # rescale AFTER blurring, hits target exactly
 
             noisy_image[mask] += noise[mask]
