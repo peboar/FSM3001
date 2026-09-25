@@ -12,14 +12,16 @@ from PIL import Image, ImageFilter
 class ImageAugmenter:
     def __init__(
         self,
+        phase_colors,
+        phase_standard_deviations,
         noise_type="none",
-        textures=None,
     ):
         if noise_type not in {"none", "artificial", "ct"}:
             raise ValueError(f"Unknown noise_type: {noise_type}")
 
         self.noise_type = noise_type
-        self.textures = textures
+        self.phase_colors = phase_colors
+        self.phase_standard_deviations = phase_standard_deviations
 
     def augment(self, image: Image.Image) -> Image.Image:
         if self.noise_type == "none":
@@ -28,8 +30,7 @@ class ImageAugmenter:
         image_array = np.array(image, dtype=np.float32)
 
         masks = []
-        for texture in self.textures.values():
-            color = texture.extract_gray_mean()
+        for color in self.values():
             mask = image_array == color
             masks.append(mask)
 
@@ -55,11 +56,9 @@ class ImageAugmenter:
         image_array = np.array(image, dtype=np.float32)
         noisy_image = image_array.copy()
 
-        for texture, mask in zip(self.textures.values(), masks):
+        for standard_deviation, mask in zip(self.phase_standard_deviations.values(), masks):
             if not np.any(mask):
                 continue
-
-            standard_deviation = texture.extract_gray_standard_deviation()
 
             noise = np.random.normal(
                 0,

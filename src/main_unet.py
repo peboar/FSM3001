@@ -29,6 +29,16 @@ for phase in phases:
     )
     textures[phase] = texture
 
+phase_colors = {
+    phase: texture.extract_gray_mean()
+    for phase, texture in textures.items()
+}
+
+phase_standard_deviation = {
+    phase: texture.extract_gray_standard_deviation()
+    for phase, texture in textures.items()
+}
+
 device = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
 )
@@ -74,7 +84,8 @@ training_datasets = [
         image_size=cfg.IMAGE_SIZE,
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
-        textures=textures,
+        phase_colors=phase_colors,
+        phase_standard_deviations=phase_standard_deviation,
     )
     for packing in training_packings
 ]
@@ -85,8 +96,8 @@ validation_datasets = [
         image_size=cfg.IMAGE_SIZE,
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
-        textures=textures,
-    )
+        phase_colors=phase_colors,
+        phase_standard_deviations=phase_standard_deviation,    )
     for packing in validation_packings
 ]
 
@@ -96,8 +107,8 @@ testing_datasets = [
         image_size=cfg.IMAGE_SIZE,
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
-        textures=textures,
-    )
+        phase_colors=phase_colors,
+        phase_standard_deviations=phase_standard_deviation,    )
     for packing in testing_packings
 ]
 
