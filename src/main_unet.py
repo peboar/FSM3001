@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import numpy as np
+from PIL import Image
 import torch
 from torch import nn, optim
 from torch.utils.data import ConcatDataset, DataLoader, random_split
@@ -118,7 +120,6 @@ testing_datasets = [
 # Merge individual datasets into continuous datasets
 training_dataset = ConcatDataset(training_datasets)
 validation_dataset = ConcatDataset(validation_datasets)
-testing_dataset = ConcatDataset(testing_datasets)
 
 training_dataloader = DataLoader(
     dataset=training_dataset,
@@ -132,14 +133,6 @@ validation_dataloader = DataLoader(
     dataset=validation_dataset,
     batch_size=cfg.BATCH_SIZE,
     shuffle=cfg.SHUFFLE_VALIDATION,
-    num_workers=cfg.NUM_WORKERS,
-    pin_memory=cfg.PIN_MEMORY
-)
-
-testing_dataloader = DataLoader(
-    dataset=testing_dataset,
-    batch_size=cfg.BATCH_SIZE,
-    shuffle=cfg.SHUFFLE_TESTING,
     num_workers=cfg.NUM_WORKERS,
     pin_memory=cfg.PIN_MEMORY
 )
@@ -163,8 +156,9 @@ criterion = nn.CrossEntropyLoss(weight=class_weights)
 checkpoint_path = data_path / f"unet_noise_{cfg.NOISE_TYPE}.pth"
 best_validation_loss = float("inf")
 
-# Start training
+# Start training and validation loop
 for epoch in tqdm(range(cfg.NUM_EPOCHS)):
+    # Start training
     model.train()
 
     running_loss_training = 0.0
@@ -187,7 +181,7 @@ for epoch in tqdm(range(cfg.NUM_EPOCHS)):
     loss_training = (
         running_loss_training / len(training_dataloader)
     )
-
+    # Validation
     model.eval()
 
     running_loss_validation = 0.0
@@ -217,3 +211,63 @@ for epoch in tqdm(range(cfg.NUM_EPOCHS)):
         best_validation_loss = loss_validation
         torch.save(model.state_dict(), str(checkpoint_path))
 
+# Testing
+true_positive = np.zeros(3, dtype=np.int64)
+predicted_pixels = np.zeros(3, dtype=np.int64)
+ground_truth_pixels = np.zeros(3, dtype=np.int64)
+
+for i, packing in enumerate(testing_packings):
+    packing = Path(packing)
+    dataset = testing_datasets[i]
+    loader = DataLoader(dataset, batch_size=1, shuffle=False)
+
+    inference_path = packing / "inference"
+    inference_path.mkdir(parents=True, exist_ok=True)
+
+    if cfg.CLEAR_INFERENCE:
+        [f.unlink() for f in inference_path.glob("*") if f.is_file()]
+
+    print(f"Generating inference plots for {packing.name} ({i}/{number_of_testing_packings})")
+
+    with torch.no_grad():
+        for index, (image, mask) in enumerate(loader):
+            image = image.to(device)
+            output = model(image)
+            # Get largest probability and convrt to numpy array
+            prediction = torch.argmax(output, dim=1).squeeze(0).cpu().numpy()
+            ground_truth = mask.squeeze(0).numpy()
+
+            for class_index in range(3):
+                true_class = ground_truth == class_index
+                predicted_class = prediction == class_index
+                true_positive[class_index] += np.sum(true_class & predicted_class)
+                predicted_pixels[class_index] += np.sum(predicted_class)
+                ground_truth_pixels[class_index] += np.sum(true_class)
+
+            prediction_mask = np.zeros_like(prediction, dtype=np.uint8)
+            prediction_mask[prediction == 1] = 128
+            prediction_mask[prediction == 2] = 255
+
+            original_name = dataset.slices[index].name
+            inference_name = original_name.replace("slice", "inference", 1)
+            Image.fromarray(prediction_mask).save(inference_path / inference_name)
+
+overall_true_positive = np.sum(true_positive)
+overall_predicted_pixels = np.sum(predicted_pixels)
+overall_ground_truth_pixels = np.sum(ground_truth_pixels)
+
+overall_dice = (
+    2 * overall_true_positive
+    / (overall_predicted_pixels + overall_ground_truth_pixels)
+)
+
+dice = (
+    2 * true_positive
+    / (predicted_pixels + ground_truth_pixels)
+)
+
+print("\nTest results")
+print(f"Overall Dice:    {overall_dice:.4f}")
+print(f"Void Dice:       {dice[0]:.4f}")
+print(f"Aggregate Dice:  {dice[1]:.4f}")
+print(f"Boundary Dice:   {dice[2]:.4f}")
