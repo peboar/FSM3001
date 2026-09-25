@@ -12,16 +12,16 @@ from PIL import Image, ImageFilter
 class ImageAugmenter:
     def __init__(
         self,
-        phase_colors,
-        phase_standard_deviations,
         noise_type="none",
+        phase_colors=None,
+        phase_standard_deviations=None,
     ):
         if noise_type not in {"none", "artificial", "ct"}:
             raise ValueError(f"Unknown noise_type: {noise_type}")
 
         self.noise_type = noise_type
-        self.phase_colors = phase_colors
-        self.phase_standard_deviations = phase_standard_deviations
+        self.phase_colors = phase_colors or {}
+        self.phase_standard_deviations = phase_standard_deviations or {}
 
     def augment(self, image: Image.Image) -> Image.Image:
         if self.noise_type == "none":
