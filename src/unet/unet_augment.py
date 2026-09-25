@@ -23,19 +23,17 @@ class ImageAugmenter:
         self.phase_colors = phase_colors or {}
         self.phase_standard_deviations = phase_standard_deviations or {}
 
-    def augment(self, image: Image.Image) -> Image.Image:
+    def augment(self, image):
         if self.noise_type == "none":
             return image
 
+        # Masks from the original flat image
+        # before anything touches the colors.
         image_array = np.array(image, dtype=np.float32)
+        masks = [image_array == color for color in self.phase_colors.values()]
 
-        masks = []
-        for color in self.phase_colors.values():
-            mask = image_array == color
-            masks.append(mask)
-
-        image = self._apply_noise(image, masks)
-        image = self._apply_blur(image, 1)
+        image = self._apply_blur(image, radius=3.2)  # edge
+        image = self._apply_noise(image, masks)  # noise added last, amplitude survives
 
         return image
 
@@ -60,16 +58,13 @@ class ImageAugmenter:
             if not np.any(mask):
                 continue
 
-            noise = np.random.normal(
-                0,
-                standard_deviation,
-                image_array.shape,
-            )
+            noise = np.random.normal(0, 1, image_array.shape)
+            noise = ndimage.gaussian_filter(noise, sigma=0.6)  # small correlation length, its own blur
+            noise = noise / noise.std() * standard_deviation  # rescale AFTER blurring, hits target exactly
 
             noisy_image[mask] += noise[mask]
 
         noisy_image = np.clip(noisy_image, 0, 255)
-
         return Image.fromarray(noisy_image.astype(np.uint8))
 
     def _apply_ct_noise(self, image, masks):

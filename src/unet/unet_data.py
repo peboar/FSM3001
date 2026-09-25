@@ -5,7 +5,6 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 
-from main_unet import phase_colors, phase_standard_deviation
 from unet.unet_augment import ImageAugmenter
 
 

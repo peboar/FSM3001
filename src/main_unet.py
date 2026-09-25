@@ -120,22 +120,25 @@ testing_dataset = ConcatDataset(testing_datasets)
 training_dataloader = DataLoader(
     dataset=training_dataset,
     batch_size=cfg.BATCH_SIZE,
-    shuffle=True,
+    shuffle=cfg.SHUFFLE,
     num_workers=cfg.NUM_WORKERS,
+    pin_memory=cfg.PIN_MEMORY
 )
 
 validation_dataloader = DataLoader(
     dataset=validation_dataset,
     batch_size=cfg.BATCH_SIZE,
-    shuffle=False,
+    shuffle=cfg.SHUFFLE,
     num_workers=cfg.NUM_WORKERS,
+    pin_memory=cfg.PIN_MEMORY
 )
 
 testing_dataloader = DataLoader(
     dataset=testing_dataset,
     batch_size=cfg.BATCH_SIZE,
-    shuffle=False,
+    shuffle=cfg.SHUFFLE,
     num_workers=cfg.NUM_WORKERS,
+    pin_memory=cfg.PIN_MEMORY
 )
 
 model = UNet(
