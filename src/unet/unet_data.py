@@ -5,6 +5,7 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 
+from main_unet import phase_colors, phase_standard_deviation
 from unet.unet_augment import ImageAugmenter
 
 
@@ -35,17 +36,18 @@ class SingleUnetDataset(Dataset):
     def __init__(
         self,
         packing_path,
+        phase_standard_deviations,
         image_size=512,
         image_extension="tif",
         noise_type="none",
-        textures=None
     ):
         self.packing_path = Path(packing_path)
         self.image_size = image_size
 
         self.augmenter = ImageAugmenter(
             noise_type=noise_type,
-            textures=textures
+            phase_colors=phase_colors,
+            phase_standard_deviations=phase_standard_deviations,
         )
 
         self.path_slices = self.packing_path / "slices"
