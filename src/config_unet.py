@@ -31,4 +31,4 @@ PIN_MEMORY = True
 
 USE_CLASS_WEIGHTS = True
 
-NOISE_TYPE = "none"
+NOISE_TYPE = "artificial"
