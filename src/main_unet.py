@@ -244,7 +244,7 @@ for i, packing in enumerate(testing_packings):
         for index, (image, mask) in enumerate(loader):
             image = image.to(device)
             output = model(image)
-            # Get largest probability and convrt to numpy array
+            # Get largest probability and convert to numpy array
             prediction = torch.argmax(output, dim=1).squeeze(0).cpu().numpy()
             ground_truth = mask.squeeze(0).numpy()
 
