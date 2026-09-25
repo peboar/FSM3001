@@ -84,6 +84,7 @@ training_datasets = [
         image_size=cfg.IMAGE_SIZE,
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
+        seed=None,
         phase_colors=phase_colors,
         phase_standard_deviations=phase_standard_deviations,
     )
@@ -96,6 +97,7 @@ validation_datasets = [
         image_size=cfg.IMAGE_SIZE,
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
+        seed=cfg.RANDOM_SEED,
         phase_colors=phase_colors,
         phase_standard_deviations=phase_standard_deviations,    )
     for packing in validation_packings
@@ -107,6 +109,7 @@ testing_datasets = [
         image_size=cfg.IMAGE_SIZE,
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
+        seed=cfg.RANDOM_SEED,
         phase_colors=phase_colors,
         phase_standard_deviations=phase_standard_deviations,    )
     for packing in testing_packings
@@ -120,7 +123,7 @@ testing_dataset = ConcatDataset(testing_datasets)
 training_dataloader = DataLoader(
     dataset=training_dataset,
     batch_size=cfg.BATCH_SIZE,
-    shuffle=cfg.SHUFFLE,
+    shuffle=cfg.SHUFFLE_TRAINING,
     num_workers=cfg.NUM_WORKERS,
     pin_memory=cfg.PIN_MEMORY
 )
@@ -128,7 +131,7 @@ training_dataloader = DataLoader(
 validation_dataloader = DataLoader(
     dataset=validation_dataset,
     batch_size=cfg.BATCH_SIZE,
-    shuffle=cfg.SHUFFLE,
+    shuffle=cfg.SHUFFLE_VALIDATION,
     num_workers=cfg.NUM_WORKERS,
     pin_memory=cfg.PIN_MEMORY
 )
@@ -136,7 +139,7 @@ validation_dataloader = DataLoader(
 testing_dataloader = DataLoader(
     dataset=testing_dataset,
     batch_size=cfg.BATCH_SIZE,
-    shuffle=cfg.SHUFFLE,
+    shuffle=cfg.SHUFFLE_TESTING,
     num_workers=cfg.NUM_WORKERS,
     pin_memory=cfg.PIN_MEMORY
 )

@@ -38,6 +38,7 @@ class SingleUnetDataset(Dataset):
         image_size=512,
         image_extension="tif",
         noise_type="none",
+        seed=None,
         phase_colors=None,
         phase_standard_deviations=None,
     ):
@@ -46,6 +47,7 @@ class SingleUnetDataset(Dataset):
 
         self.augmenter = ImageAugmenter(
             noise_type=noise_type,
+            seed=seed,
             phase_colors=phase_colors,
             phase_standard_deviations=phase_standard_deviations,
         )
