@@ -12,7 +12,11 @@ def compute_class_weights(
         packing_paths,
         image_extension="tif"
 ):
-    """Use normalized inverse pixel area as Weights."""
+    """Use square root inverse pixel frequency to damp weight extremes."""
+    from pathlib import Path
+    from PIL import Image
+    import numpy as np
+    import torch
 
     pixel_counts = np.zeros(3, dtype=np.int64)
 
@@ -20,13 +24,20 @@ def compute_class_weights(
         mask_paths = sorted((Path(path) / "masks").glob(f"*.{image_extension}"))
         for mask_path in mask_paths:
             mask_array = np.array(Image.open(mask_path).convert("L"))
-            # Compute all pixels
+            # Compute pixels per class
             pixel_counts[0] += (mask_array == 0).sum()
             pixel_counts[1] += (mask_array == 128).sum()
             pixel_counts[2] += (mask_array == 255).sum()
 
-    weights = 1.0 / (pixel_counts)
-    weights = weights / weights.sum()
+    # Calculate raw frequencies
+    total_pixels = pixel_counts.sum()
+    frequencies = pixel_counts / total_pixels
+
+    # Apply square root inverse frequency
+    weights = 1.0 / np.sqrt(frequencies)
+
+    # Normalize so the weights average to 1.0 for training stability
+    weights = weights / weights.sum() * len(pixel_counts)
 
     return torch.from_numpy(weights).float()
 
