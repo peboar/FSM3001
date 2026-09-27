@@ -5,9 +5,6 @@ Augmentations are applied to make the synthetic slices look more similar
 to real CT scans. All augmentations are applied before the image is
 converted to a tensor. The mask is untouched.
 """
-
-from pathlib import Path
-
 import albumentations as A
 import numpy as np
 from PIL import Image
@@ -57,7 +54,7 @@ class ImageAugmenter:
                     p=0.5,
                 ),
                 A.ShotNoise(
-                    scale_range=(0.005, 0.01),
+                    scale_range=(0.005, 0.015),
                     p=0.5,
                 ),
             ],
