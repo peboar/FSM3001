@@ -114,6 +114,10 @@ class ImageAugmenter:
 
         self.noise_type = noise_type
         self.seed = seed
+
+        if seed is not None:
+            A.set_random_seed(seed)
+
         self.phase_colors = phase_colors or {}
         self.phase_standard_deviations = (
             phase_standard_deviations or {}
@@ -126,6 +130,7 @@ class ImageAugmenter:
         self.multiplicative_noise = MultiplicativeNoise()
         self.shot_noise = ShotNoise()
         self.gaussian_noise = GaussianNoise()
+
 
     def augment(self, image):
         if self.noise_type == "none":
