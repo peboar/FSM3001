@@ -8,7 +8,7 @@ from scipy.ndimage import binary_fill_holes
 def extract_container_coordinates(image_path):
     """Extract the cylinder container coordinates from a CT slice.
 
-    The cylinder is assumed to be stationary across all CT slices, so the
+    The cylinder is stationary across all CT slices, so the
     resulting coordinates can be reused for every slice in the scan.
 
     Pixels outside the estimated cylinder are set to white. Sensor noise
@@ -45,10 +45,10 @@ def extract_container_coordinates(image_path):
     container_mask = binary_fill_holes(non_black_pixels)
 
     # Create an image containing only the container region.
-    cropped_image_arr = np.full_like(image_arr, 255)
-    cropped_image_arr[container_mask] = image_arr[container_mask]
+    image_cropped_arr = np.full_like(image_arr, 255)
+    image_cropped_arr[container_mask] = image_arr[container_mask]
 
-    cropped_image = Image.fromarray(cropped_image_arr)
+    image_cropped = Image.fromarray(image_cropped_arr)
 
     # Save the coordinates for reuse on all slices.
     container_coordinates = np.where(container_mask)
@@ -57,16 +57,48 @@ def extract_container_coordinates(image_path):
     coordinates_path = script_directory / "container_coordinates.npy"
     np.save(coordinates_path, container_coordinates)
 
-    cropped_image.show()
+    image_cropped.show()
 
     return container_mask
 
 
-ct_image_path = (
-    r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/"
-    r"S01_1_Granite11_Brick11_SS/"
-    r"S01.1 - Granite11 Brick11 SS/"
-    r"Granite brick SS aft Y_0005.tif"
-)
+def crop_ct_image(image_path, image_size=512):
+    script_directory = Path(__file__).resolve().parent
+    coordinates_path = script_directory / "container_coordinates.npy"
 
-extract_container_coordinates(ct_image_path)
+    image_resolution = (image_size, image_size)
+
+    mask_arr = tuple(np.load(coordinates_path))
+
+    image = Image.open(image_path).convert("L")
+    image_arr = np.array(image)
+
+    image_cropped_arr = np.zeros_like(image_arr)
+    image_cropped_arr[mask_arr] = image_arr[mask_arr]
+
+    image_cropped = Image.fromarray(image_cropped_arr)
+    image_cropped.resize(image_resolution)
+    return image_cropped
+
+
+if __name__ == "__main__":
+    # Use the first slice to detect the container boundaries
+    ct_mask_image_path = (
+        r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/"
+        r"S01_1_Granite11_Brick11_SS/"
+        r"S01.1 - Granite11 Brick11 SS/"
+        r"Granite brick SS aft Y_0000.tif"
+    )
+
+    extract_container_coordinates(ct_mask_image_path)
+
+    # Test if the crop works
+    ct_image_path = (
+        r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/"
+        r"S01_1_Granite11_Brick11_SS/"
+        r"S01.1 - Granite11 Brick11 SS/"
+        r"Granite brick SS aft Y_0530.tif"
+    )
+
+    image = crop_ct_image(ct_image_path)
+    image.save("cropped_granite_brick_ss_aft_y_0530.tif")
