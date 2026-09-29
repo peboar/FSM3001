@@ -11,7 +11,9 @@ data_path = project_path / "data" / (cfg.AGGREGATE_TYPE + "s")
 slice_bounds = ((-cfg.RADIUS, -cfg.RADIUS), (cfg.RADIUS, cfg.RADIUS))
 
 if __name__ == "__main__":
-    packing_dirs = sorted(data_path.iterdir())
+    packing_dirs = sorted([
+        file for file in data_path.iterdir() if file.is_dir()
+    ])
     number_of_packings = len(packing_dirs)
 
     for index, packing_dir in enumerate(packing_dirs, start=1):
