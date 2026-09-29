@@ -99,11 +99,13 @@ validation_datasets = [
         image_size=cfg.IMAGE_SIZE,
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
-        seed=cfg.RANDOM_SEED,
+        seed=i + cfg.RANDOM_SEED,
         phase_colors=phase_colors,
-        phase_standard_deviations=phase_standard_deviations,    )
-    for packing in validation_packings
+        phase_standard_deviations=phase_standard_deviations,
+    )
+    for i, packing in enumerate(validation_packings)
 ]
+
 
 testing_datasets = [
     SingleUnetDataset(
@@ -111,10 +113,11 @@ testing_datasets = [
         image_size=cfg.IMAGE_SIZE,
         image_extension=cfg.IMAGE_EXTENSION,
         noise_type=cfg.NOISE_TYPE,
-        seed=cfg.RANDOM_SEED,
+        seed=i + cfg.RANDOM_SEED,
         phase_colors=phase_colors,
-        phase_standard_deviations=phase_standard_deviations,    )
-    for packing in testing_packings
+        phase_standard_deviations=phase_standard_deviations,
+    )
+    for i, packing in enumerate(testing_packings)
 ]
 
 # Merge individual datasets into continuous datasets
