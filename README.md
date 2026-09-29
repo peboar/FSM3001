@@ -17,7 +17,7 @@ conda activate ct
 conda install pytorch torchvision torchaudio cpuonly -c pytorch -y
 
 # Install dependencies
-conda install -c conda-forge shapely trimesh albumentations opencv scipy pillow matplotlib noise -y
+conda install -c conda-forge shapely trimesh albumentations opencv scipy pillow matplotlib noise tqdm -y
 ```
 
 ### 3. Run Scripts
