@@ -14,7 +14,7 @@ class CtDataGenerator:
     def __init__(
         self,
         packing_path,
-        image_size,
+        image_size=512,
         image_extension="tif",
         dpi=100,
         clear_slices=True,
@@ -169,15 +169,24 @@ class CtDataGenerator:
             print(f"No sections found at z: {z}")
             return
 
-        void_color = self.phase_colors["void"]
 
         canvas = (
-            np.ones(
+            np.zeros(
                 (self.image_height, self.image_width),
                 dtype=np.uint8,
             )
-            * void_color
         )
+
+        # Add container void phase
+        void_color = self.phase_colors["void"]
+
+        radius = min(self.image_width, self.image_height) // 2
+        center_width = self.image_width // 2
+        center_height = self.image_height // 2
+        y, x = np.ogrid[:self.image_height, :self.image_width]
+        circle_mask = (x - center_width) ** 2 + (y - center_height) ** 2 <= radius ** 2
+
+        canvas[circle_mask] = void_color
 
         kernel = np.array(
             [
