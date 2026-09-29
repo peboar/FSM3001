@@ -166,7 +166,7 @@ class CtDataGenerator:
         sections = self._get_sections(z)
 
         if not sections:
-            print(f"No sections found at z: {z}")
+            print(f"    No sections found at z: {z}")
             return
 
 
@@ -244,7 +244,7 @@ class CtDataGenerator:
         sections = self._get_sections(z)
 
         if not sections:
-            print(f"No sections found at z: {z}")
+            print(f"    No sections found at z: {z}")
             return
 
         canvas = np.zeros(

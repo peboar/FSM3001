@@ -163,9 +163,9 @@ class Packing:
 
                 progress = self._progress(len(self.aggregates), total_volume)
                 print(
-                    f"Generated aggregate {len(self.aggregates)}, "
-                    f"{100 * progress:.0f}% of target, "
-                    f"aggregate volume {total_volume:.0f} mm³"
+                    f"    Generated aggregate {len(self.aggregates)}, "
+                    f"    {100 * progress:.0f}% of target, "
+                    f"    aggregate volume {total_volume:.0f} mm³"
                 )
 
     def _configure_rigidbody_world(self):
@@ -199,8 +199,8 @@ class Packing:
 
             if frame > 0 and frame % output_frequency == 0:
                 print(
-                    f"Simulation completion "
-                    f"{100 * frame / total_frames:.0f}%"
+                    f"    Simulation completion "
+                    f"    {100 * frame / total_frames:.0f}%"
                 )
 
     def save_packing(self, save_blend=False):
