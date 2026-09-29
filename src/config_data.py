@@ -1,3 +1,6 @@
+# Number of packings
+NUMBER_OF_PACKINGS = 2
+
 # Container dimensions
 RADIUS = 50
 HEIGHT = 305
