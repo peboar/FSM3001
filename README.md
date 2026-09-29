@@ -9,8 +9,8 @@ Add this path to your Windows Environment Variables (**Path**):
 Open **Anaconda Prompt** and run:
 ```bash
 # Create and register environment
-conda create --prefix C:\Users\boekhout\ct python=3.11 -y
-conda config --append envs_dirs C:\Users\boekhout
+conda create --prefix C:\Users\USERNAME\ct python=3.11 -y
+conda config --append envs_dirs C:\Users\USERNAME
 conda activate ct
 
 # Install PyTorch (CPU)
