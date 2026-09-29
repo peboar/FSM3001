@@ -48,36 +48,51 @@ def extract_container_coordinates(image_path):
     image_cropped_arr = np.full_like(image_arr, 255)
     image_cropped_arr[container_mask] = image_arr[container_mask]
 
+    x_min = width
+    x_max = 0
+    y_min = height
+    y_max = 0
+
+    for h in range(height):
+        for w in range(width):
+            if image_cropped_arr[h][w] != 255:
+                x_min = min(x_min, w)
+                x_max = max(x_max, w)
+                y_min = min(y_min, h)
+                y_max = max(y_max, h)
+
+    bounds = (x_min, y_min, x_max, y_max)
     image_cropped = Image.fromarray(image_cropped_arr)
 
     # Save the coordinates for reuse on all slices.
     container_coordinates = np.where(container_mask)
 
     script_directory = Path(__file__).resolve().parent
-    coordinates_path = script_directory / "container_coordinates.npy"
-    np.save(coordinates_path, container_coordinates)
-
+    coordinates_path = script_directory / "container_coordinates.npz"
+    np.savez(coordinates_path, container_coordinates=container_coordinates, bounds=bounds)
     image_cropped.show()
 
-    return container_mask
-
-
 def crop_ct_image(image_path, image_size=512):
+    """Crop CT-images to make them easier to segment"""
     script_directory = Path(__file__).resolve().parent
-    coordinates_path = script_directory / "container_coordinates.npy"
+    coordinates_path = script_directory / "container_coordinates.npz"
 
     image_resolution = (image_size, image_size)
 
-    mask_arr = tuple(np.load(coordinates_path))
+    data = np.load(coordinates_path)
+    container_coordinates = data["container_coordinates"]
+    bounds = data["bounds"]
+    mask_arr = tuple(container_coordinates)
 
     image = Image.open(image_path).convert("L")
     image_arr = np.array(image)
 
     image_cropped_arr = np.zeros_like(image_arr)
     image_cropped_arr[mask_arr] = image_arr[mask_arr]
-
     image_cropped = Image.fromarray(image_cropped_arr)
+    image_cropped = image_cropped.crop(bounds)
     image_cropped.resize(image_resolution)
+
     return image_cropped
 
 
