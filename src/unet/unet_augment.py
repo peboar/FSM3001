@@ -84,7 +84,7 @@ class ImageAugmenter:
 
         return Image.fromarray(image_array)
 
-    def _apply_gaussian_noise(self, image, masks):
+    def _apply_gaussian_noise(self, image, masks, p=1):
         image_array = image.copy()
 
         for phase, mask in masks.items():
@@ -102,7 +102,7 @@ class ImageAugmenter:
                             0.5 * std / 255,
                             1.5 * std / 255,
                         ),
-                        p=1.0,
+                        p=p,
                     )
                 ],
                 seed=self.seed,
