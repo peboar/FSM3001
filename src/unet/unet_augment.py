@@ -138,22 +138,30 @@ class ImageAugmenter:
         num_circles = self.rng.integers(4, 16)
         max_radius = min(image_height, image_width)
 
-        radii = np.linspace(
-            0,
-            max_radius,
-            num_circles + 2,
-        )[1:-1]
+        radii = (
+                        np.linspace(0, 1, num_circles + 2)[1:-1] ** 2
+                ) * max_radius
 
-        radii += self.rng.uniform(
-            -max_radius / (2 * (num_circles + 1)),
-            max_radius / (2 * (num_circles + 1)),
-            size=num_circles,
+        center_x = np.clip(
+            self.rng.normal(0.5, 0.15),
+            0.2,
+            0.8,
         )
 
-        radii = np.sort(radii.astype(int))
+        center_y = np.clip(
+            self.rng.normal(0.5, 0.15),
+            0.2,
+            0.8,
+        )
 
-        center_x = self.rng.uniform(0.2, 0.8)
-        center_y = self.rng.uniform(0.2, 0.8)
+        center_x_pixel = center_x * image_width
+        center_y_pixel = center_y * image_height
+
+        y, x = np.ogrid[:image_height, :image_width]
+        distance = np.sqrt(
+            (x - center_x_pixel) ** 2
+            + (y - center_y_pixel) ** 2
+        )
 
         transform = A.Compose(
             [
@@ -171,30 +179,14 @@ class ImageAugmenter:
 
         output_image_array = image_array.copy()
 
-        center_x_pixel = center_x * image_width
-        center_y_pixel = center_y * image_height
-
-        y, x = np.ogrid[:image_height, :image_width]
-        distance = np.sqrt(
-            (x - center_x_pixel) ** 2
-            + (y - center_y_pixel) ** 2
-        )
-
-        for radius in sorted(radii):
-            width = self.rng.integers(
-                max(2, radius // 20),
-                max(3, radius // 5),
-            )
-
+        for radius in radii.astype(int):
             ring_mask = (
-                (distance >= radius - width / 2)
-                & (distance <= radius + width / 2)
+                    (distance >= radius - 5)
+                    & (distance <= radius + 5)
             )
 
-            transformed = transform(
+            output_image_array[ring_mask] = transform(
                 image=output_image_array
-            )["image"]
-
-            output_image_array[ring_mask] = transformed[ring_mask]
+            )["image"][ring_mask]
 
         return output_image_array
