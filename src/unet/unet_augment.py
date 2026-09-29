@@ -38,7 +38,7 @@ class ImageAugmenter:
                     p=0.5,
                 ),
             ],
-            seed=seed,
+            seed=self.seed,
         )
 
         self.transforms_after_illumination = A.Compose(
@@ -58,7 +58,7 @@ class ImageAugmenter:
                     p=0.5,
                 ),
             ],
-            seed=seed,
+            seed=self.seed,
         )
 
     def augment(self, image):
