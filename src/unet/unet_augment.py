@@ -23,26 +23,26 @@ class ImageAugmenter:
 
         self.noise_type = noise_type
         self.seed = seed
+        self.rng = np.random.default_rng(seed)
+
         self.phase_colors = phase_colors or {}
         self.phase_standard_deviations = (
             phase_standard_deviations or {}
         )
 
-        self.transforms = A.Compose(
+        self.transforms_before_illumination = A.Compose(
             [
                 A.RandomBrightnessContrast(
                     brightness_limit=(-0.2, 0.2),
                     contrast_limit=(-0.2, 0.2),
                     p=0.5,
                 ),
-                A.Illumination(
-                    mode="gaussian",
-                    intensity_range=(0.05, 0.15),
-                    effect_type="both",
-                    center_range=(0.2, 0.8),
-                    sigma_range=(0.4, 0.8),
-                    p=0.5,
-                ),
+            ],
+            seed=seed,
+        )
+
+        self.transforms_after_illumination = A.Compose(
+            [
                 A.GaussianBlur(
                     sigma_limit=(0.8, 2),
                     p=1.0,
@@ -73,7 +73,13 @@ class ImageAugmenter:
             for phase, color in self.phase_colors.items()
         }
 
-        image_array = self.transforms(
+        image_array = self.transforms_before_illumination(
+            image=image_array
+        )["image"]
+
+        image_array = self._apply_illumination(image_array)
+
+        image_array = self.transforms_after_illumination(
             image=image_array
         )["image"]
 
@@ -84,8 +90,11 @@ class ImageAugmenter:
 
         return Image.fromarray(image_array)
 
-    def _apply_gaussian_noise(self, image, masks, p=1):
-        image_array = image.copy()
+    def _apply_gaussian_noise(self, image_array, masks, p=1):
+        if self.rng.random() >= p:
+            return image_array
+
+        output_image_array = image_array.copy()
 
         for phase, mask in masks.items():
             if not np.any(mask):
@@ -93,7 +102,7 @@ class ImageAugmenter:
 
             std = self.phase_standard_deviations[phase]
 
-            phase_pixels = image_array[mask].reshape(-1, 1)
+            phase_pixels = output_image_array[mask].reshape(-1, 1)
 
             transform = A.Compose(
                 [
@@ -112,10 +121,80 @@ class ImageAugmenter:
                 image=phase_pixels
             )["image"]
 
-            image_array[mask] = phase_pixels.reshape(-1)
+            output_image_array[mask] = phase_pixels.reshape(-1)
 
         return np.clip(
-            image_array,
+            output_image_array,
             0,
             255,
         ).astype(np.uint8)
+
+    def _apply_illumination(self, image_array, p=0.5):
+        if self.rng.random() >= p:
+            return image_array
+
+        image_height, image_width = image_array.shape
+
+        num_circles = self.rng.integers(4, 16)
+        max_radius = min(image_height, image_width)
+
+        radii = np.linspace(
+            0,
+            max_radius,
+            num_circles + 2,
+        )[1:-1]
+
+        radii += self.rng.uniform(
+            -max_radius / (2 * (num_circles + 1)),
+            max_radius / (2 * (num_circles + 1)),
+            size=num_circles,
+        )
+
+        radii = np.sort(radii.astype(int))
+
+        center_x = self.rng.uniform(0.2, 0.8)
+        center_y = self.rng.uniform(0.2, 0.8)
+
+        transform = A.Compose(
+            [
+                A.Illumination(
+                    mode="gaussian",
+                    intensity_range=(0.05, 0.2),
+                    effect_type="both",
+                    center_range=(0.2, 0.8),
+                    sigma_range=(0.4, 0.8),
+                    p=1.0,
+                ),
+            ],
+            seed=self.seed,
+        )
+
+        output_image_array = image_array.copy()
+
+        center_x_pixel = center_x * image_width
+        center_y_pixel = center_y * image_height
+
+        y, x = np.ogrid[:image_height, :image_width]
+        distance = np.sqrt(
+            (x - center_x_pixel) ** 2
+            + (y - center_y_pixel) ** 2
+        )
+
+        for radius in sorted(radii):
+            width = self.rng.integers(
+                max(2, radius // 20),
+                max(3, radius // 5),
+            )
+
+            ring_mask = (
+                (distance >= radius - width / 2)
+                & (distance <= radius + width / 2)
+            )
+
+            transformed = transform(
+                image=output_image_array
+            )["image"]
+
+            output_image_array[ring_mask] = transformed[ring_mask]
+
+        return output_image_array
