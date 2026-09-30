@@ -1,5 +1,5 @@
 # Number of packings
-NUMBER_OF_PACKINGS = 2
+NUMBER_OF_PACKINGS = 1
 
 # Container dimensions
 RADIUS = 50
