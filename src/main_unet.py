@@ -42,9 +42,14 @@ if __name__ == "__main__":
         for phase, texture in textures.items()
     }
 
-    device = torch.device(
-        "cuda" if torch.cuda.is_available() else "cpu"
-    )
+    # Select and print the available devices
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print(f"Device: {device}")
+        print(f"GPU: {torch.cuda.get_device_name(0)}")
+    else:
+        device = torch.device("cpu")
+        print(f"Device: {device}")
 
     packing_directories = [
         path
@@ -130,7 +135,8 @@ if __name__ == "__main__":
         batch_size=cfg.BATCH_SIZE,
         shuffle=cfg.SHUFFLE_TRAINING,
         num_workers=cfg.NUM_WORKERS,
-        pin_memory=cfg.PIN_MEMORY
+        pin_memory=cfg.PIN_MEMORY,
+        persistent_workers=cfg.PERSISTENT_WORKERS,
     )
 
     validation_dataloader = DataLoader(
@@ -138,7 +144,8 @@ if __name__ == "__main__":
         batch_size=cfg.BATCH_SIZE,
         shuffle=cfg.SHUFFLE_VALIDATION,
         num_workers=cfg.NUM_WORKERS,
-        pin_memory=cfg.PIN_MEMORY
+        pin_memory=cfg.PIN_MEMORY,
+        persistent_workers=cfg.PERSISTENT_WORKERS,
     )
 
     model = UNet(
@@ -234,7 +241,7 @@ if __name__ == "__main__":
     for i, packing in enumerate(testing_packings):
         packing = Path(packing)
         dataset = testing_datasets[i]
-        loader = DataLoader(dataset, batch_size=1, shuffle=False)
+        loader = DataLoader(dataset, batch_size=cfg.BATCH_SIZE, shuffle=False)
 
         inference_path = packing / "inference"
         inference_path.mkdir(parents=True, exist_ok=True)
