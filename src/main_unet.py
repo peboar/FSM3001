@@ -241,7 +241,7 @@ if __name__ == "__main__":
     for i, packing in enumerate(testing_packings):
         packing = Path(packing)
         dataset = testing_datasets[i]
-        loader = DataLoader(dataset, batch_size=1, shuffle=False)
+        loader = DataLoader(dataset, batch_size=cfg.BATCH_SIZE, shuffle=False)
 
         inference_path = packing / "inference"
         inference_path.mkdir(parents=True, exist_ok=True)
