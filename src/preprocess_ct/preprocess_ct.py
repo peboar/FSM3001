@@ -92,7 +92,7 @@ def crop_ct_image(image_path, image_size=512):
     image_cropped_arr[mask_arr] = image_arr[mask_arr]
     image_cropped = Image.fromarray(image_cropped_arr)
     image_cropped = image_cropped.crop(bounds)
-    image_cropped.resize(image_resolution)
+    image_cropped = image_cropped.resize(image_resolution)
 
     return image_cropped
 
