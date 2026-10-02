@@ -5,7 +5,7 @@ from PIL import Image
 from scipy.ndimage import binary_fill_holes
 
 
-def extract_container_coordinates(image_path):
+def extract_container_coordinates(image_path, threshold):
     """Extract the cylinder container coordinates from a CT slice.
 
     The cylinder is stationary across all CT slices, so the
@@ -39,7 +39,7 @@ def extract_container_coordinates(image_path):
                 image_arr[h, w] = 255
 
     # Identify pixels belonging to the container.
-    non_black_pixels = image_arr > 50
+    non_black_pixels = image_arr > threshold
 
     # Fill holes to obtain a solid container mask.
     container_mask = binary_fill_holes(non_black_pixels)
@@ -72,6 +72,7 @@ def extract_container_coordinates(image_path):
     np.savez(coordinates_path, container_coordinates=container_coordinates, bounds=bounds)
     image_cropped.show()
 
+
 def crop_ct_image(image_path, image_size=512):
     """Crop CT-images to make them easier to segment"""
     script_directory = Path(__file__).resolve().parent
@@ -99,21 +100,19 @@ def crop_ct_image(image_path, image_size=512):
 if __name__ == "__main__":
     # Use the first slice to detect the container boundaries
     ct_mask_image_path = (
-        r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/"
-        r"S01_1_Granite11_Brick11_SS/"
-        r"S01.1 - Granite11 Brick11 SS/"
-        r"Granite brick SS aft Y_0000.tif"
+        r"C:\KTH\Courses\FSM3001\Project\src\data\ct_evaluation\crop_mask\Granite brick SS Bef Y_0000.tif"
     )
-
-    extract_container_coordinates(ct_mask_image_path)
-
+    threshold = 116
+    extract_container_coordinates(ct_mask_image_path, threshold)
+    file_path = Path(r"C:\KTH\Courses\FSM3001\Project\src\data\ct_evaluation")
     # Test if the crop works
-    ct_image_path = (
-        r"/home/per/Desktop/Kth/Phd/Courses/FSM3001/Project/"
-        r"S01_1_Granite11_Brick11_SS/"
-        r"S01.1 - Granite11 Brick11 SS/"
-        r"Granite brick SS aft Y_0530.tif"
-    )
+    for image_path in file_path.glob('*.tif'):
+        cropped_image = crop_ct_image(image_path)
 
-    image = crop_ct_image(ct_image_path)
-    image.save("cropped_granite_brick_ss_aft_y_0530.tif")
+        clean_name = image_path.stem.lower().replace(" ", "_")
+        new_filename = f"cropped_{clean_name}.tif"
+
+        save_path = image_path.parent / new_filename
+
+        cropped_image.save(save_path)
+        print(f"Saved: {save_path.name}")
