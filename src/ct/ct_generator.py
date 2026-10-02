@@ -262,6 +262,7 @@ class CtDataGenerator:
         )
 
         pixel_x, pixel_y = self._coordinates_to_pixels(bounds)
+        centroids = []
 
         for section_2d in sections.values():
             for polygon in section_2d.polygons_full:
@@ -276,6 +277,15 @@ class CtDataGenerator:
 
                 if not np.any(poly_mask):
                     continue
+
+                y_indices, x_indices = np.where(poly_mask)
+
+                centroids.append(
+                    (
+                        float(x_indices.mean()),
+                        float(y_indices.mean()),
+                    )
+                )
 
                 poly_mask_uint8 = (
                     poly_mask.astype(np.uint8) * 255
@@ -295,7 +305,7 @@ class CtDataGenerator:
                 canvas[poly_mask_uint8 == 255] = 128
                 canvas[edge_mask == 255] = 255
 
-        return canvas, len(sections)
+        return canvas, len(sections), centroids
 
     def generate_ct_data(
         self,
@@ -313,21 +323,22 @@ class CtDataGenerator:
 
         slicing_dir = self.output_directory / "slices"
         mask_dir = self.output_directory / "masks"
+        centroid_dir = self.output_directory / "centroids"
+
+        centroid_dir.mkdir(parents=True, exist_ok=True)
 
         slicing_dir.mkdir(exist_ok=True)
         mask_dir.mkdir(exist_ok=True)
 
         if self.clear_slices:
-            [
-                f.unlink()
-                for f in slicing_dir.glob("*")
-                if f.is_file()
-            ]
-            [
-                f.unlink()
-                for f in mask_dir.glob("*")
-                if f.is_file()
-            ]
+            for directory in (
+                    slicing_dir,
+                    mask_dir,
+                    centroid_dir,
+            ):
+                for file in directory.glob("*"):
+                    if file.is_file():
+                        file.unlink()
 
         z_values = np.linspace(
             z_min,
@@ -348,6 +359,7 @@ class CtDataGenerator:
             (
                 canvas_mask,
                 num_aggregates_mask,
+                centroids,
             ) = self._generate_mask(
                 z,
                 bounds,
@@ -371,6 +383,14 @@ class CtDataGenerator:
                 )
             )
 
+            centroid_filename = (
+                centroid_dir
+                / (
+                    f"centroid_z_{z_string}_aggregates_"
+                    f"{num_aggregates_mask}.npz"
+                )
+            )
+
             cv2.imwrite(
                 str(slicing_filename),
                 canvas_slice,
@@ -380,11 +400,18 @@ class CtDataGenerator:
                 canvas_mask,
             )
 
+            np.savez(
+                centroid_filename,
+                centroids=np.asarray(centroids),
+            )
+
             print(f"    Generated slices at z={z:.2f}")
 
-        print(f"    Generated {number_of_slices} slices in:")
+        print(f"    Generated {number_of_slices} slices, masks, and centroids in:")
         print(f"    {slicing_dir}")
         print(f"    {mask_dir}")
+        print(f"    {centroid_dir}")
+
 
     def animate_slicing(
         self,
