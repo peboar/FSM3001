@@ -151,18 +151,21 @@ class CtDataGenerator:
 
         return pixel_x, pixel_y
 
-    def _generate_inclusions(self,
+    @staticmethod
+    def _generate_inclusions(canvas,
                              poly_mask,
                              pixel_x,
                              pixel_y,
                              z,
+                             color,
                              angle=0,
-                             threshold=0.05,
-                             scale_x=0.6,
+                             contrast=1.5,
+                             threshold=0.035,
+                             scale_x=0.25,
                              scale_y=0.02,
                              scale_z=0.05,
-                             octaves=2):
-        """Boolean vein mask, evaluated only inside poly_mask, in global coordinates."""
+                             octaves=1):
+
         angle_radian = np.deg2rad(angle)
 
         dx = pixel_x[poly_mask]
@@ -176,9 +179,9 @@ class CtDataGenerator:
             for px, py in zip(rx.tolist(), ry.tolist())
         ])
 
-        veins = np.zeros_like(poly_mask, dtype=bool)
-        veins[poly_mask] = noise > threshold
-        return veins
+        inclusions = np.zeros_like(poly_mask, dtype=bool)
+        inclusions[poly_mask] = np.abs(noise) < threshold
+        canvas[inclusions] = min(255, int(color * contrast))
 
     def plot_packing(self):
         fig, ax = plt.subplots(
@@ -248,8 +251,7 @@ class CtDataGenerator:
 
         for aggregate_id, section_2d in sections.items():
             inclusion_params = dict(self.inclusions[aggregate_id] or {})
-            inclusion_color = inclusion_params.pop("color", 255)
-            inclusion_params["angle"] = self.aggregate_angles[aggregate_id]
+            angle = self.aggregate_angles[aggregate_id]
 
             for polygon in section_2d.polygons_full:
                 if polygon.is_empty:
@@ -285,14 +287,16 @@ class CtDataGenerator:
                 canvas[poly_mask_uint8 == 255] = color
 
                 if self.inclusions[aggregate_id]:
-                    inclusion = self._generate_inclusions(
+                    self._generate_inclusions(
+                        canvas,
                         poly_mask,
                         pixel_x,
                         pixel_y,
                         z,
+                        color,
+                        angle,
                         **inclusion_params,
                     )
-                    canvas[inclusion] = inclusion_color
 
                 canvas[edge_mask == 255] = edge_color
 
