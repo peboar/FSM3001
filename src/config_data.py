@@ -13,12 +13,12 @@ GRANITE_DENSITY = 2650
 GRANITE_SHORT_RATIO = (0.7, 1.0)
 GRANITE_LONG_RATIO = (1.0, 1.5)
 GRANITE_INCLUSION = {
-    "color": 255,
-    "angle": 0,
-    "threshold": 0.25,
-    "scale_x": 0.5,
-    "scale_y": 0.1,
-    "scale_z": 0.1,
+    "contrast": 1.25,
+    "threshold": 0.05,   # raise to 0.07-0.08 for thicker lines
+    "scale_x": 0.6,      # raise for more lines, lower for fewer
+    "scale_y": 0.02,     # lower for longer streaks (try 0.015)
+    "scale_z": 0.05,
+    "octaves": 2,
 }
 
 BRICK_NAME = "brick"
