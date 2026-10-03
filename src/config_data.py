@@ -12,11 +12,25 @@ GRANITE_NAME = "granite"
 GRANITE_DENSITY = 2650
 GRANITE_SHORT_RATIO = (0.7, 1.0)
 GRANITE_LONG_RATIO = (1.0, 1.5)
+GRANITE_INCLUSION = {
+    "color": 255,
+    "angle": 0,
+    "threshold": 0.25,
+    "scale_x": 0.5,
+    "scale_y": 0.1,
+    "scale_z": 0.1,
+}
 
 BRICK_NAME = "brick"
 BRICK_DENSITY = 2070
 BRICK_SHORT_RATIO = (0.5, 0.9)
 BRICK_LONG_RATIO = (1.2, 1.8)
+BRICK_INCLUSION = None  # no inclusions
+
+MATERIAL_INCLUSIONS = {
+    GRANITE_NAME: GRANITE_INCLUSION,
+    BRICK_NAME: BRICK_INCLUSION,
+}
 
 # Packing parameters
 AGGREGATE_TYPE = "polyhedron"
@@ -37,7 +51,7 @@ IMAGE_EXTENSION = "tif" # No dot
 DPI = 100
 CLEAR_SLICES = True
 NUMBER_OF_SLICES = 32
-EDGE_FACTOR = 0.9
+EDGE_FACTOR = 1.0
 
 
 
