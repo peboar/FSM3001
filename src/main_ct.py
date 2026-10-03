@@ -43,10 +43,11 @@ if __name__ == "__main__":
             image_extension=cfg.IMAGE_EXTENSION,
             dpi=cfg.DPI,
             clear_slices=cfg.CLEAR_SLICES,
+            inclusions=cfg.MATERIAL_INCLUSIONS
         )
 
         ct_generator.generate_ct_data(
             number_of_slices=cfg.NUMBER_OF_SLICES,
             bounds=slice_bounds,
-            edge_color=cfg.EDGE_FACTOR
+            edge_color=cfg.EDGE_FACTOR,
         )
