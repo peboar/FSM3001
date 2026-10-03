@@ -157,10 +157,11 @@ class CtDataGenerator:
                              pixel_y,
                              z,
                              angle=0,
-                             threshold=0.25,
-                             scale_x=0.5,
-                             scale_y=0.1,
-                             scale_z=0.1):
+                             threshold=0.05,
+                             scale_x=0.6,
+                             scale_y=0.02,
+                             scale_z=0.05,
+                             octaves=2):
         """Boolean vein mask, evaluated only inside poly_mask, in global coordinates."""
         angle_radian = np.deg2rad(angle)
 
@@ -171,7 +172,7 @@ class CtDataGenerator:
         rz = z * scale_z
 
         noise = np.array([
-            pnoise3(px, py, rz, octaves=4)
+            pnoise3(px, py, rz, octaves=octaves)
             for px, py in zip(rx.tolist(), ry.tolist())
         ])
 
