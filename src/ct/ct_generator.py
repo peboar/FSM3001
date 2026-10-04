@@ -3,6 +3,7 @@ from pathlib import Path
 import cv2
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
+from noise import pnoise3
 import numpy as np
 import shapely
 import trimesh
@@ -18,6 +19,7 @@ class CtDataGenerator:
         image_extension="tif",
         dpi=100,
         clear_slices=True,
+        inclusions = None,
     ):
         self.script_path = Path(__file__).resolve().parent
         self.packing_path = Path(packing_path)
@@ -60,6 +62,22 @@ class CtDataGenerator:
                 128,
             )
             for aggregate_id, aggregate in self.aggregates.items()
+        }
+        inclusions = inclusions or {}
+
+        self.inclusions = {
+            aggregate_id: inclusions.get(aggregate.get("material"))
+            for aggregate_id, aggregate in self.aggregates.items()
+        }
+
+        # Random seed for perlie noise
+        seed = int(self.output_directory.stem.split('_')[-1])
+        self.rng = np.random.default_rng(seed)
+
+
+        self.aggregate_angles = {
+            aggregate_id: self.rng.uniform(0.0, 360.0)
+            for aggregate_id in self.aggregates
         }
 
     @property
@@ -133,6 +151,38 @@ class CtDataGenerator:
 
         return pixel_x, pixel_y
 
+    @staticmethod
+    def _generate_inclusions(canvas,
+                             poly_mask,
+                             pixel_x,
+                             pixel_y,
+                             z,
+                             color,
+                             angle=0,
+                             contrast=1.5,
+                             threshold=0.035,
+                             scale_x=0.25,
+                             scale_y=0.02,
+                             scale_z=0.05,
+                             octaves=1):
+
+        angle_radian = np.deg2rad(angle)
+
+        dx = pixel_x[poly_mask]
+        dy = pixel_y[poly_mask]
+        rx = (np.cos(angle_radian) * dx - np.sin(angle_radian) * dy) * scale_x
+        ry = (np.sin(angle_radian) * dx + np.cos(angle_radian) * dy) * scale_y
+        rz = z * scale_z
+
+        noise = np.array([
+            pnoise3(px, py, rz, octaves=octaves)
+            for px, py in zip(rx.tolist(), ry.tolist())
+        ])
+
+        inclusions = np.zeros_like(poly_mask, dtype=bool)
+        inclusions[poly_mask] = np.abs(noise) < threshold
+        canvas[inclusions] = min(255, int(color * contrast))
+
     def plot_packing(self):
         fig, ax = plt.subplots(
             dpi=self.dpi,
@@ -200,6 +250,9 @@ class CtDataGenerator:
         pixel_x, pixel_y = self._coordinates_to_pixels(bounds)
 
         for aggregate_id, section_2d in sections.items():
+            inclusion_params = dict(self.inclusions[aggregate_id] or {})
+            angle = self.aggregate_angles[aggregate_id]
+
             for polygon in section_2d.polygons_full:
                 if polygon.is_empty:
                     continue
@@ -232,6 +285,19 @@ class CtDataGenerator:
                 )
 
                 canvas[poly_mask_uint8 == 255] = color
+
+                if self.inclusions[aggregate_id]:
+                    self._generate_inclusions(
+                        canvas,
+                        poly_mask,
+                        pixel_x,
+                        pixel_y,
+                        z,
+                        color,
+                        angle,
+                        **inclusion_params,
+                    )
+
                 canvas[edge_mask == 255] = edge_color
 
         return canvas, len(sections)
