@@ -97,7 +97,6 @@ if __name__ == "__main__":
             material_inclusions=material_inclusions,
             edge_factor=cfg.EDGE_FACTOR,
             seed=None,
-            augment=True,
         )
         for packing in training_packings
     ]
@@ -111,7 +110,6 @@ if __name__ == "__main__":
             material_inclusions=material_inclusions,
             edge_factor=cfg.EDGE_FACTOR,
             seed=i + cfg.RANDOM_SEED,
-            augment=False,
         )
         for i, packing in enumerate(validation_packings)
     ]
@@ -125,7 +123,6 @@ if __name__ == "__main__":
             material_inclusions=material_inclusions,
             edge_factor=cfg.EDGE_FACTOR,
             seed=i + cfg.RANDOM_SEED,
-            augment=False,
         )
         for i, packing in enumerate(testing_packings)
     ]
