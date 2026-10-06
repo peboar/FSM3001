@@ -7,6 +7,8 @@ PHASES = [
     "void",
 ]
 
+MATERIAL_INCLUSIONS = cfg_data.MATERIAL_INCLUSIONS
+
 AGGREGATE_TYPE = cfg_data.AGGREGATE_TYPE
 
 TRAIN_RATIO = 0.70
@@ -35,8 +37,6 @@ PERSISTENT_WORKERS = True
 
 
 USE_CLASS_WEIGHTS = True
-
-NOISE_TYPE = "artificial"
 
 # Testing
 CLEAR_INFERENCE = True

@@ -19,7 +19,7 @@ class CtDataGenerator:
         image_extension="tif",
         dpi=100,
         clear_slices=True,
-        inclusions = None,
+        inclusions=None,
     ):
         self.script_path = Path(__file__).resolve().parent
         self.packing_path = Path(packing_path)

@@ -1,43 +1,54 @@
 from pathlib import Path
-import numpy as np
 
-from PIL import Image
+import numpy as np
 import torch
+from PIL import Image
 from torch.utils.data import Dataset
 
 from unet.unet_augment import ImageAugmenter
 
 
 def compute_class_weights(
-        packing_paths,
-        image_extension="tif"
+    packing_paths,
+    image_extension="tif",
 ):
     """Use square root inverse pixel frequency to damp weight extremes."""
-    from pathlib import Path
-    from PIL import Image
-    import numpy as np
-    import torch
-
     pixel_counts = np.zeros(3, dtype=np.int64)
 
     for path in packing_paths:
-        mask_paths = sorted((Path(path) / "masks").glob(f"*.{image_extension}"))
-        for mask_path in mask_paths:
-            mask_array = np.array(Image.open(mask_path).convert("L"))
-            # Compute pixels per class
-            pixel_counts[0] += (mask_array == 0).sum()
-            pixel_counts[1] += (mask_array == 128).sum()
-            pixel_counts[2] += (mask_array == 255).sum()
+        mask_paths = sorted(
+            (Path(path) / "masks").glob(
+                f"*.{image_extension}"
+            )
+        )
 
-    # Calculate raw frequencies
+        for mask_path in mask_paths:
+            mask_array = np.array(
+                Image.open(mask_path).convert("L")
+            )
+
+            pixel_counts[0] += (
+                mask_array == 0
+            ).sum()
+
+            pixel_counts[1] += (
+                mask_array == 128
+            ).sum()
+
+            pixel_counts[2] += (
+                mask_array == 255
+            ).sum()
+
     total_pixels = pixel_counts.sum()
     frequencies = pixel_counts / total_pixels
 
-    # Apply square root inverse frequency
     weights = 1.0 / np.sqrt(frequencies)
 
-    # Normalize so the weights average to 1.0 for training stability
-    weights = weights / weights.sum() * len(pixel_counts)
+    weights = (
+        weights
+        / weights.sum()
+        * len(pixel_counts)
+    )
 
     return torch.from_numpy(weights).float()
 
@@ -48,62 +59,100 @@ class SingleUnetDataset(Dataset):
         packing_path,
         image_size=512,
         image_extension="tif",
-        noise_type="none",
-        seed=None,
         phase_colors=None,
-        phase_standard_deviations=None,
+        material_inclusions=None,
+        edge_factor=1.0,
+        seed=None,
     ):
         self.packing_path = Path(packing_path)
         self.image_size = image_size
 
         self.augmenter = ImageAugmenter(
-            noise_type=noise_type,
-            seed=seed,
             phase_colors=phase_colors,
-            phase_standard_deviations=phase_standard_deviations,
+            edge_factor=edge_factor,
+            material_inclusions=material_inclusions,
+            seed=seed,
         )
 
         self.path_slices = self.packing_path / "slices"
         self.path_masks = self.packing_path / "masks"
 
         self.slices = sorted(
-            [image for image in self.path_slices.glob(f"*.{image_extension}") if image.is_file()]
+            image
+            for image in self.path_slices.glob(
+                f"*.{image_extension}"
+            )
+            if image.is_file()
         )
+
         self.masks = sorted(
-            [image for image in self.path_masks.glob(f"*.{image_extension}") if image.is_file()]
+            image
+            for image in self.path_masks.glob(
+                f"*.{image_extension}"
+            )
+            if image.is_file()
         )
 
         if not self.slices:
-            raise RuntimeError(f"No slices found in {self.path_slices}")
+            raise RuntimeError(
+                f"No slices found in {self.path_slices}"
+            )
 
         if len(self.slices) != len(self.masks):
-            raise RuntimeError(f"The number of slices: {len(self.slices)} " 
-                               f"does not match the number of masks: {len(self.masks)}")
+            raise RuntimeError(
+                f"The number of slices: {len(self.slices)} "
+                f"does not match the number of masks: "
+                f"{len(self.masks)}"
+            )
 
     def __len__(self):
         return len(self.slices)
 
     def __getitem__(self, index):
-        image = Image.open(self.slices[index]).convert("L")
-        mask = Image.open(self.masks[index]).convert("L")
+        image = Image.open(
+            self.slices[index]
+        ).convert("L")
 
-        image_resolution = (self.image_size, self.image_size)
+        mask = Image.open(
+            self.masks[index]
+        ).convert("L")
 
-        image = image.resize(image_resolution, Image.BILINEAR)
-        mask = mask.resize(image_resolution, Image.NEAREST)
+        image_resolution = (
+            self.image_size,
+            self.image_size,
+        )
+
+        image = image.resize(
+            image_resolution,
+            Image.BILINEAR,
+        )
+
+        mask = mask.resize(
+            image_resolution,
+            Image.NEAREST,
+        )
 
         image = self.augmenter.augment(image)
 
-        # Normalize gray scale colors to be between 0-1
-        image = torch.from_numpy(np.array(image, dtype=np.float32) / 255.0)
-        # Adds channel dimension (H, W) -> (1, H, W)
+        image = torch.from_numpy(
+            np.array(
+                image,
+                dtype=np.float32,
+            ) / 255.0
+        )
+
         image = image.unsqueeze(0)
 
-        mask_array = np.array(mask, dtype=np.uint8)
+        mask_array = np.array(
+            mask,
+            dtype=np.uint8,
+        )
 
-        # Clean template for the mask output. Uses int64 to ensure a PyTorch LongTensor
-        class_mask = np.zeros_like(mask_array, dtype=np.int64)
-        # 0: Black voids, 1: Gray aggregates, 2: White aggregate boundaries
+        class_mask = np.zeros_like(
+            mask_array,
+            dtype=np.int64,
+        )
+
         class_mask[mask_array == 128] = 1
         class_mask[mask_array == 255] = 2
 

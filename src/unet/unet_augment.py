@@ -1,192 +1,339 @@
 """
-Image augmentation for the synthetic slices.
-
-Augmentations are applied to make the synthetic slices look more similar
-to real CT scans. All augmentations are applied before the image is
-converted to a tensor. The mask is untouched.
+Image augmentation for synthetic CT slices.
 """
-import albumentations as A
+
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
+
+from medaugmentx import Compose, MedVolume, OneOf, Transform
+from medaugmentx.transforms import (
+    BeamHardening,
+    GaussianBlur,
+    GaussianNoise,
+    WindowLevel,
+)
+
+
+class PhaseColors(Transform):
+    def __init__(
+        self,
+        phase_colors=None,
+        edge_factor=1.0,
+        material_inclusions=None,
+        seed=None,
+    ):
+        super().__init__(p=1.0, seed=seed)
+
+        self.phase_colors = phase_colors
+        self.number_of_phases = (
+            None if not phase_colors else len(phase_colors)
+        )
+        self.edge_factor = edge_factor
+        self.material_inclusions = material_inclusions
+
+    def apply(self, volume):
+        image_arr = volume.image.astype(
+            np.float32,
+            copy=False,
+        )
+
+        image_255_arr = image_arr * 255.0
+        augmented_255_arr = image_255_arr.copy()
+
+        if self.number_of_phases:
+            min_distance = 30
+            min_inclusion_distance = 30
+
+            while True:
+                colors = self.rng.choice(
+                    np.arange(256),
+                    size=self.number_of_phases,
+                    replace=False,
+                )
+
+                if np.min(
+                    np.diff(np.sort(colors))
+                ) >= min_distance:
+                    break
+
+            for i, (phase, color) in enumerate(
+                self.phase_colors.items()
+            ):
+                mask = image_255_arr == color
+                augmented_255_arr[mask] = colors[i]
+
+                edge_color = min(
+                    255,
+                    int(color * self.edge_factor),
+                )
+
+                mask_edges = image_255_arr == edge_color
+
+                new_edge_color = min(
+                    255,
+                    int(colors[i] * self.edge_factor),
+                )
+
+                augmented_255_arr[mask_edges] = new_edge_color
+
+                if (
+                    self.material_inclusions
+                    and phase in self.material_inclusions
+                    and self.material_inclusions[phase]
+                ):
+                    contrast = self.material_inclusions[
+                        phase
+                    ]["contrast"]
+
+                    inclusion_color = min(
+                        255,
+                        int(color * contrast),
+                    )
+
+                    mask_inclusion = (
+                        image_255_arr == inclusion_color
+                    )
+
+                    max_inclusion_color = (
+                        colors[i] - min_inclusion_distance
+                    )
+
+                    if max_inclusion_color > 0:
+                        new_inclusion_color = (
+                            self.rng.integers(
+                                1,
+                                max_inclusion_color + 1,
+                            )
+                        )
+
+                        augmented_255_arr[
+                            mask_inclusion
+                        ] = new_inclusion_color
+
+        augmented = augmented_255_arr / 255.0
+
+        return volume.replace(
+            image=augmented.astype(
+                np.float32,
+                copy=False,
+            )
+        )
+
+
+class FFTCloudNoise(Transform):
+    def __init__(
+        self,
+        cloud_scale=(15.0, 50.0),
+        strength=(1.0, 10.0),
+        p=0.5,
+        seed=None,
+    ):
+        super().__init__(p=p, seed=seed)
+
+        self.cloud_scale = cloud_scale
+        self.strength = strength
+
+    def apply(self, volume):
+        image_arr = volume.image.astype(
+            np.float32,
+            copy=False,
+        )
+
+        image_255_arr = image_arr * 255.0
+
+        noise = self.rng.normal(
+            0.0,
+            1.0,
+            image_arr.shape,
+        )
+
+        height, width = image_arr.shape
+
+        fy = np.fft.fftfreq(height)
+        fx = np.fft.fftfreq(width)
+
+        fx, fy = np.meshgrid(fx, fy)
+
+        radius = np.sqrt(fx**2 + fy**2)
+
+        cloud_scale = float(
+            self.rng.uniform(*self.cloud_scale)
+        )
+
+        frequency_scale = 1.0 / cloud_scale
+
+        frequency_filter = np.exp(
+            -(radius / frequency_scale) ** 2
+        )
+
+        noise_fft = np.fft.fft2(noise)
+
+        cloud = np.real(
+            np.fft.ifft2(
+                noise_fft * frequency_filter
+            )
+        )
+
+        cloud -= cloud.mean()
+        cloud /= cloud.std()
+
+        strength = float(
+            self.rng.uniform(*self.strength)
+        )
+
+        augmented_255 = (
+            image_255_arr
+            + strength * cloud
+        )
+
+        augmented_255 = np.clip(
+            augmented_255,
+            0.0,
+            255.0,
+        )
+
+        augmented = augmented_255 / 255.0
+
+        return volume.replace(
+            image=augmented.astype(
+                np.float32,
+                copy=False,
+            )
+        )
 
 
 class ImageAugmenter:
     def __init__(
         self,
-        noise_type="none",
-        seed=None,
         phase_colors=None,
-        phase_standard_deviations=None,
+        edge_factor=1.0,
+        material_inclusions=None,
+        seed=None,
     ):
-        if noise_type not in {"none", "artificial"}:
-            raise ValueError(f"Unknown noise_type: {noise_type}")
-
-        self.noise_type = noise_type
-        self.seed = seed
-        self.rng = np.random.default_rng(seed)
-
-        self.phase_colors = phase_colors or {}
-        self.phase_standard_deviations = (
-            phase_standard_deviations or {}
-        )
-
-        self.transforms_before_illumination = A.Compose(
+        self.transform = Compose(
             [
-                A.RandomBrightnessContrast(
-                    brightness_limit=(-0.2, 0.2),
-                    contrast_limit=(-0.2, 0.2),
+                PhaseColors(
+                    phase_colors=phase_colors,
+                    edge_factor=edge_factor,
+                    material_inclusions=material_inclusions,
+                    seed=seed,
+                ),
+                GaussianBlur(
+                    sigma=(1.0, 3.0),
+                    p=0.5,
+                ),
+                WindowLevel(
+                    center_shift_frac=0.05,
+                    width_scale=(0.85, 1.15),
+                    p=0.5,
+                ),
+                OneOf(
+                    [
+                        GaussianNoise(
+                            std=(0.01, 0.05),
+                        ),
+                        GaussianNoise(
+                            std=(0.05, 0.12),
+                        ),
+                    ],
+                    p=1,
+                ),
+                OneOf(
+                    [
+                        BeamHardening(
+                            alpha=(0.05, 0.10),
+                            power=2.0,
+                        ),
+                        BeamHardening(
+                            alpha=(0.10, 0.25),
+                            power=2.0,
+                        ),
+                    ],
                     p=0.5,
                 ),
             ],
-            seed=self.seed,
-        )
-
-        self.transforms_after_illumination = A.Compose(
-            [
-                A.GaussianBlur(
-                    sigma_limit=(0.8, 2),
-                    p=1.0,
-                ),
-                A.MultiplicativeNoise(
-                    multiplier=(0.9, 1.1),
-                    per_channel=False,
-                    elementwise=True,
-                    p=0.5,
-                ),
-                A.ShotNoise(
-                    scale_range=(0.005, 0.015),
-                    p=0.5,
-                ),
-            ],
-            seed=self.seed,
+            seed=seed,
         )
 
     def augment(self, image):
-        if self.noise_type == "none":
-            return image
-
-        image_array = np.asarray(image, dtype=np.uint8)
-
-        # Store phase masks before the image intensities are changed.
-        masks = {
-            phase: image_array == color
-            for phase, color in self.phase_colors.items()
-        }
-
-        image_array = self.transforms_before_illumination(
-            image=image_array
-        )["image"]
-
-        image_array = self._apply_illumination(image_array)
-
-        image_array = self.transforms_after_illumination(
-            image=image_array
-        )["image"]
-
-        image_array = self._apply_gaussian_noise(
-            image_array,
-            masks,
+        image_array = np.asarray(
+            image,
+            dtype=np.float32,
         )
 
-        return Image.fromarray(image_array)
+        image_array /= 255.0
 
-    def _apply_gaussian_noise(self, image_array, masks, p=1):
-        if self.rng.random() >= p:
-            return image_array
-
-        output_image_array = image_array.copy()
-
-        for phase, mask in masks.items():
-            if not np.any(mask):
-                continue
-
-            std = self.phase_standard_deviations[phase]
-
-            phase_pixels = output_image_array[mask].reshape(-1, 1)
-
-            transform = A.Compose(
-                [
-                    A.GaussNoise(
-                        std_range=(
-                            0.5 * std / 255,
-                            1.5 * std / 255,
-                        ),
-                        p=p,
-                    )
-                ],
-                seed=self.seed,
-            )
-
-            phase_pixels = transform(
-                image=phase_pixels
-            )["image"]
-
-            output_image_array[mask] = phase_pixels.reshape(-1)
-
-        return np.clip(
-            output_image_array,
-            0,
-            255,
-        ).astype(np.uint8)
-
-    def _apply_illumination(self, image_array, p=0.5):
-        if self.rng.random() >= p:
-            return image_array
-
-        image_height, image_width = image_array.shape
-
-        num_circles = self.rng.integers(4, 16)
-        max_radius = min(image_height, image_width)
-
-        radii = (
-                        np.linspace(0, 1, num_circles + 2)[1:-1] ** 2
-                ) * max_radius
-
-        center_x = np.clip(
-            self.rng.normal(0.5, 0.15),
-            0.2,
-            0.8,
+        volume = MedVolume(
+            image=image_array,
+            spacing=(1.0, 1.0),
+            metadata={"modality": "CT"},
         )
 
-        center_y = np.clip(
-            self.rng.normal(0.5, 0.15),
-            0.2,
-            0.8,
+        augmented = self.transform(volume)
+
+        output = np.asarray(
+            augmented.image,
+            dtype=np.float32,
         )
 
-        center_x_pixel = center_x * image_width
-        center_y_pixel = center_y * image_height
-
-        y, x = np.ogrid[:image_height, :image_width]
-        distance = np.sqrt(
-            (x - center_x_pixel) ** 2
-            + (y - center_y_pixel) ** 2
+        output = np.clip(
+            output,
+            0.0,
+            1.0,
         )
 
-        transform = A.Compose(
-            [
-                A.Illumination(
-                    mode="gaussian",
-                    intensity_range=(0.05, 0.2),
-                    effect_type="both",
-                    center_range=(0.2, 0.8),
-                    sigma_range=(0.4, 0.8),
-                    p=1.0,
-                ),
-            ],
-            seed=self.seed,
+        output = (output * 255).astype(np.uint8)
+
+        return Image.fromarray(output)
+
+
+if __name__ == "__main__":
+    image_path = Path(
+        r"C:\KTH\Courses\FSM3001\Project\src\data\polyhedrons"
+        r"\packing_398_20260921_221507\slices"
+        r"\slice_z_003_89_aggregates_39.tif"
+    )
+
+    image = Image.open(image_path)
+
+    phase_colors = {
+        "granite": 93,
+        "brick": 83,
+        "void": 49,
+    }
+
+    granite_name = "granite"
+    granite_inclusion = {
+        "contrast": 1.5,
+        "threshold": 0.025,
+        "scale_x": 0.35,
+        "scale_y": 0.025,
+        "scale_z": 0.05,
+        "octaves": 1,
+    }
+
+    brick_name = "brick"
+    brick_inclusion = None
+
+    material_inclusions = {
+        granite_name: granite_inclusion,
+        brick_name: brick_inclusion,
+    }
+
+    for seed in range(1, 100):
+        augmenter = ImageAugmenter(
+            phase_colors=phase_colors,
+            edge_factor=1.0,
+            material_inclusions=material_inclusions,
+            seed=seed,
         )
 
-        output_image_array = image_array.copy()
+        augmented = augmenter.augment(image)
 
-        for radius in radii.astype(int):
-            ring_mask = (
-                    (distance >= radius - 5)
-                    & (distance <= radius + 5)
-            )
-
-            output_image_array[ring_mask] = transform(
-                image=output_image_array
-            )["image"][ring_mask]
-
-        return output_image_array
+        plt.figure()
+        plt.imshow(augmented, cmap="gray")
+        plt.axis("off")
+        plt.show()
