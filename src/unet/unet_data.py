@@ -132,7 +132,7 @@ class SingleUnetDataset(Dataset):
             Image.NEAREST,
         )
 
-        image = self.augmenter.augment(image)
+        image = self.augmenter.augment(image, mask)
 
         image = torch.from_numpy(
             np.array(

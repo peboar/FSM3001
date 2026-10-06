@@ -23,9 +23,10 @@ class PhaseColors(Transform):
         phase_colors=None,
         edge_factor=1.0,
         material_inclusions=None,
+        p=1.0,
         seed=None,
     ):
-        super().__init__(p=1.0, seed=seed)
+        super().__init__(p=p, seed=seed)
 
         self.phase_colors = phase_colors
         self.number_of_phases = (
@@ -40,78 +41,102 @@ class PhaseColors(Transform):
             copy=False,
         )
 
+        mask_arr = volume.mask.astype(
+            np.float32,
+            copy=False,
+        )
+
         image_255_arr = image_arr * 255.0
+        mask_255_arr = mask_arr * 255.0
+
         augmented_255_arr = image_255_arr.copy()
 
-        if self.number_of_phases:
-            min_distance = 30
-            min_inclusion_distance = 30
+        if not self.number_of_phases:
+            return volume.replace(
+                image=image_arr
+            )
 
-            while True:
-                colors = self.rng.choice(
-                    np.arange(256),
-                    size=self.number_of_phases,
-                    replace=False,
-                )
+        min_distance = 30
+        min_inclusion_distance = 30
 
-                if np.min(
-                    np.diff(np.sort(colors))
-                ) >= min_distance:
-                    break
+        while True:
+            colors = self.rng.choice(
+                np.arange(256),
+                size=self.number_of_phases,
+                replace=False,
+            )
 
-            for i, (phase, color) in enumerate(
-                self.phase_colors.items()
-            ):
-                mask = image_255_arr == color
-                augmented_255_arr[mask] = colors[i]
+            if np.min(
+                np.diff(np.sort(colors))
+            ) >= min_distance:
+                break
 
+        for i, (phase, color) in enumerate(
+            self.phase_colors.items()
+        ):
+            new_color = colors[i]
+
+            mask_aggregates = (
+                    (image_255_arr == color)
+                    & (mask_255_arr != 255)
+            )
+            augmented_255_arr[mask_aggregates] = new_color
+
+            if phase != "void":
                 edge_color = min(
                     255,
                     int(color * self.edge_factor),
                 )
 
-                mask_edges = image_255_arr == edge_color
+                mask_edges = (
+                        (image_255_arr == edge_color)
+                        & (mask_255_arr == 255)
+                )
 
                 new_edge_color = min(
                     255,
-                    int(colors[i] * self.edge_factor),
+                    int(new_color * self.edge_factor),
                 )
 
-                augmented_255_arr[mask_edges] = new_edge_color
+                augmented_255_arr[
+                    mask_edges
+                ] = new_edge_color
 
-                if (
-                    self.material_inclusions
-                    and phase in self.material_inclusions
-                    and self.material_inclusions[phase]
-                ):
-                    contrast = self.material_inclusions[
-                        phase
-                    ]["contrast"]
+            if (
+                self.material_inclusions
+                and phase in self.material_inclusions
+                and self.material_inclusions[phase]
+            ):
+                contrast = self.material_inclusions[
+                    phase
+                ]["contrast"]
 
-                    inclusion_color = min(
-                        255,
-                        int(color * contrast),
-                    )
+                inclusion_color = min(
+                    255,
+                    int(color * contrast),
+                )
 
-                    mask_inclusion = (
-                        image_255_arr == inclusion_color
-                    )
+                mask_inclusion = (
+                        (image_255_arr == inclusion_color)
+                        & (mask_255_arr != 255)
+                )
 
-                    max_inclusion_color = (
-                        colors[i] - min_inclusion_distance
-                    )
+                max_inclusion_color = (
+                    new_color
+                    - min_inclusion_distance
+                )
 
-                    if max_inclusion_color > 0:
-                        new_inclusion_color = (
-                            self.rng.integers(
-                                1,
-                                max_inclusion_color + 1,
-                            )
+                if max_inclusion_color > 0:
+                    new_inclusion_color = (
+                        self.rng.integers(
+                            1,
+                            max_inclusion_color + 1,
                         )
+                    )
 
-                        augmented_255_arr[
-                            mask_inclusion
-                        ] = new_inclusion_color
+                    augmented_255_arr[
+                        mask_inclusion
+                    ] = new_inclusion_color
 
         augmented = augmented_255_arr / 255.0
 
@@ -239,7 +264,7 @@ class ImageAugmenter:
                             std=(0.05, 0.12),
                         ),
                     ],
-                    p=1,
+                    p=1.0,
                 ),
                 OneOf(
                     [
@@ -258,7 +283,7 @@ class ImageAugmenter:
             seed=seed,
         )
 
-    def augment(self, image):
+    def augment(self, image, mask):
         image_array = np.asarray(
             image,
             dtype=np.float32,
@@ -266,8 +291,16 @@ class ImageAugmenter:
 
         image_array /= 255.0
 
+        mask_array = np.asarray(
+            mask,
+            dtype=np.float32,
+        )
+
+        mask_array /= 255.0
+
         volume = MedVolume(
             image=image_array,
+            mask=mask_array,
             spacing=(1.0, 1.0),
             metadata={"modality": "CT"},
         )
@@ -292,12 +325,19 @@ class ImageAugmenter:
 
 if __name__ == "__main__":
     image_path = Path(
-        r"C:\KTH\Courses\FSM3001\Project\src\data\polyhedrons"
-        r"\packing_398_20260921_221507\slices"
-        r"\slice_z_003_89_aggregates_39.tif"
+        r"C:\KTH\Courses\FSM3001\Project\unet_ouput_random_colors\edges\data\polyhedrons\packing_398_20260921_221507\slices\slice_z_003_89_aggregates_39.tif"
+    )
+
+    mask_path = Path(
+        r"C:\KTH\Courses\FSM3001\Project\unet_ouput_random_colors\edges\data\polyhedrons\packing_398_20260921_221507\masks\mask_z_003_89_aggregates_39.tif"
     )
 
     image = Image.open(image_path)
+
+    image = np.array(Image.open(image_path))
+
+    mask = Image.open(mask_path)
+    mask = np.array(Image.open(mask_path))
 
     phase_colors = {
         "granite": 93,
@@ -323,15 +363,15 @@ if __name__ == "__main__":
         brick_name: brick_inclusion,
     }
 
-    for seed in range(1, 100):
+    for seed in range(7, 8):
         augmenter = ImageAugmenter(
             phase_colors=phase_colors,
-            edge_factor=1.0,
+            edge_factor=0.9,
             material_inclusions=material_inclusions,
             seed=seed,
         )
 
-        augmented = augmenter.augment(image)
+        augmented = augmenter.augment(image, mask)
 
         plt.figure()
         plt.imshow(augmented, cmap="gray")
