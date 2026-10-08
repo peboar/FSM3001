@@ -8,35 +8,36 @@ from postprocess.evaluator import SegmentationEvaluator
 
 project_path = Path(__file__).resolve().parent
 data_path = project_path / "data" / (cfg.AGGREGATE_TYPE + "s")
-results_path = project_path / "results"
 
-results_path.mkdir(exist_ok=True)
+run_name = Path(__file__).resolve().parent.name
+output_path = data_path / f"evaluation_{cfg.EVALUATION_INPUT_TYPE}_{run_name}.npz"
 
+packing_names = []
+results = []
 
-if __name__ == "__main__":
-    packing_dirs = sorted(
-        file for file in data_path.iterdir() if file.is_dir()
+packing_dirs = sorted(
+    path for path in data_path.iterdir() if path.is_dir()
+)
+
+for packing_dir in packing_dirs:
+    inference_path = packing_dir / "inference"
+
+    if not inference_path.is_dir():
+        continue
+
+    print(f"Processing {packing_dir.name}")
+
+    evaluator = SegmentationEvaluator(
+        packing_dir,
+        input_type=cfg.EVALUATION_INPUT_TYPE,
+        tolerance=15,
     )
 
-    for packing_dir in packing_dirs:
-        inference_path = packing_dir / "inference"
+    packing_names.append(packing_dir.name)
+    results.append(evaluator.evaluate())
 
-        if not inference_path.is_dir():
-            continue
-
-        print(f"Processing {packing_dir.name}")
-
-        evaluator = SegmentationEvaluator(
-            packing_dir,
-            input_type="synthetic",
-            tolerance=15,
-        )
-
-        result = evaluator.evaluate()
-
-        output_path = results_path / f"{packing_dir.name}.npz"
-
-        np.savez(
-            output_path,
-            **result,
-        )
+np.savez(
+    output_path,
+    packing=np.array(packing_names),
+    results=np.array(results, dtype=object),
+)
