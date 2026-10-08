@@ -9,20 +9,21 @@ class SegmentationEvaluator:
 
     def __init__(
         self,
-        inference_path,
-        mask_path,
+        packing_path,
+        input_type="synthetic",
         tolerance=15,
     ):
-        self.inference_path = Path(inference_path)
-        self.mask_path = Path(mask_path)
 
-        self.inference_image = Image.open(
-            self.inference_path
-        )
-        self.mask_image = Image.open(
-            self.mask_path
-        )
+        if input_type not in {"synthetic", "real"}:
+            raise ValueError(
+                "input_type should be 'synthetic' or 'real'"
+            )
 
+        self.packing_path = Path(packing_path)
+        self.inference_path = self.packing_path / "inference"
+        self.mask_path = self.packing_path / "masks"
+
+        self.input_type = input_type
         self.tolerance = tolerance
 
     @staticmethod
@@ -54,7 +55,6 @@ class SegmentationEvaluator:
 
                 while stack:
                     r, c = stack.pop()
-
                     current_aggregate.append((r, c))
 
                     for d_r, d_c in directions:
@@ -64,9 +64,7 @@ class SegmentationEvaluator:
                         if 0 <= next_r < rows and 0 <= next_c < cols:
                             if image_arr[next_r, next_c] == 128:
                                 image_arr[next_r, next_c] = 0
-                                stack.append(
-                                    (next_r, next_c)
-                                )
+                                stack.append((next_r, next_c))
 
                 total_pixels = len(current_aggregate)
 
@@ -207,89 +205,153 @@ class SegmentationEvaluator:
         return 2 * intersection / denominator
 
     def evaluate(self):
-        inference = np.array(
-            self.inference_image,
-            copy=True,
+
+        inference_files = sorted(
+            self.inference_path.glob("*.tif")
         )
 
-        mask = np.array(
-            self.mask_image,
-            copy=True,
+        mask_files = sorted(
+            self.mask_path.glob("*.tif")
         )
 
-        predicted_centroids, predicted_areas = (
-            self.aggregate_centroids(inference)
-        )
-
-        ground_truth_centroids, ground_truth_areas = (
-            self.aggregate_centroids(mask)
-        )
-
-        matches = self.match_centroids(
-            predicted_centroids,
-            ground_truth_centroids,
-        )
-
-        aggregate_dice = self.dice_score(
-            inference,
-            mask,
-            128,
-        )
-
-        boundary_dice = self.dice_score(
-            inference,
-            mask,
-            255,
-        )
-
-        area_agreement = (
-            self.aggregate_area_agreement(
-                predicted_areas,
-                ground_truth_areas,
-                matches,
+        if len(inference_files) != len(mask_files):
+            raise ValueError(
+                f"Number of inference files "
+                f"({len(inference_files)}) does not match "
+                f"number of mask files ({len(mask_files)})."
             )
+
+        total_predicted = 0
+        total_ground_truth = 0
+        total_matched = 0
+
+        aggregate_dice = []
+        boundary_dice = []
+        area_agreements = []
+
+        for inference_file, mask_file in zip(
+            inference_files,
+            mask_files,
+        ):
+
+            inference = np.array(
+                Image.open(inference_file),
+                copy=True,
+            )
+
+            mask = np.array(
+                Image.open(mask_file),
+                copy=True,
+            )
+
+            predicted_centroids, predicted_areas = (
+                self.aggregate_centroids(inference)
+            )
+
+            ground_truth_centroids, ground_truth_areas = (
+                self.aggregate_centroids(mask)
+            )
+
+            matches = self.match_centroids(
+                predicted_centroids,
+                ground_truth_centroids,
+            )
+
+            total_predicted += len(
+                predicted_centroids
+            )
+
+            total_ground_truth += len(
+                ground_truth_centroids
+            )
+
+            total_matched += len(matches)
+
+            if self.input_type == "synthetic":
+
+                aggregate_dice.append(
+                    self.dice_score(
+                        inference,
+                        mask,
+                        128,
+                    )
+                )
+
+                boundary_dice.append(
+                    self.dice_score(
+                        inference,
+                        mask,
+                        255,
+                    )
+                )
+
+                area_agreements.append(
+                    self.aggregate_area_agreement(
+                        predicted_areas,
+                        ground_truth_areas,
+                        matches,
+                    )
+                )
+
+        centroid_precision = (
+            total_matched / total_predicted
+            if total_predicted > 0
+            else 0.0
         )
 
-        return {
-            "aggregate_dice": aggregate_dice,
-            "boundary_dice": boundary_dice,
-            "predicted_aggregates": len(
-                predicted_centroids
-            ),
-            "ground_truth_aggregates": len(
-                ground_truth_centroids
-            ),
-            "matched_aggregates": len(matches),
-            "area_agreement": area_agreement,
+        centroid_recall = (
+            total_matched / total_ground_truth
+            if total_ground_truth > 0
+            else 0.0
+        )
+
+        centroid_f1 = (
+            2 * total_matched
+            / (
+                    total_predicted
+                    + total_ground_truth
+            )
+            if total_predicted + total_ground_truth > 0
+            else 0.0
+        )
+
+        results = {
+            "predicted_aggregates": total_predicted,
+            "ground_truth_aggregates": total_ground_truth,
+            "matched_aggregates": total_matched,
+            "centroid_precision": centroid_precision,
+            "centroid_recall": centroid_recall,
+            "centroid_f1": centroid_f1,
         }
 
+        if self.input_type == "synthetic":
+            results.update({
+                "aggregate_dice": np.mean(
+                    aggregate_dice
+                ),
+                "boundary_dice": np.mean(
+                    boundary_dice
+                ),
+                "area_agreement": np.mean(
+                    area_agreements
+                ),
+            })
 
+        return results
 
 
 if __name__ == "__main__":
 
-    inference_path = Path(
-        r"C:\KTH\Courses\FSM3001\Project\src\data"
-        r"\polyhedrons\packing_430_20260921_235616"
-        r"\inference\inference_z_007_90_aggregates_53.tif"
-    )
-
-    mask_path = Path(
-        r"C:\KTH\Courses\FSM3001\Project\src\data"
-        r"\polyhedrons\packing_430_20260921_235616"
-        r"\masks\mask_z_007_90_aggregates_53.tif"
+    packing_path = Path(
+        r"/unet_ouput_new_fft/edges/data/polyhedrons/packing_425_20260922_020837"
     )
 
     evaluator = SegmentationEvaluator(
-        inference_path,
-        mask_path,
+        packing_path,
+        input_type="synthetic",
         tolerance=15,
     )
 
     results = evaluator.evaluate()
 
     print(results)
-
-
-
-
